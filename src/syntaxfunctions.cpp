@@ -22,7 +22,7 @@ using namespace Rcpp;
 #include "dataframeimporter.h"
 #include "syntaxbridge_interface.h"
 
-static bool		gl_param_dbInMemory				= true;
+static bool		gl_param_dbInMemory				= false;
 static bool		gl_param_orderLabelsByValue		= true;
 static int		gl_param_threshold				= 10;
 

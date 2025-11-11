@@ -12,12 +12,12 @@ fi
 if [ "${QT_DIR}" ]; then
 	echo "Found QT_DIR: ${QT_DIR}"
 else
-	QT_DIR=~/Qt/6.8.3/macos
+	QT_DIR=~/Qt/6.9.2/macos
 	echo "Use default QT_DIR: ${QT_DIR}"
 fi
 
 if [[ ! "${JASP_BUILD_DIR}" ]]; then
-	JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop-Qt_6_8_3_for_macOS-Debug
+	JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop-Qt_6_9_2_for_macOS-Debug
 fi
 echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 
@@ -62,7 +62,13 @@ PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-InterfaceNoRInside.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/SyntaxInterface/libSyntaxInterface.a
 
 PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
-PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtWidgets.framework/Versions/A/QtWidgets
+PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickWidgets.framework/Versions/A/QtQuickWidgets
+
+QT_BIN=/Users/brunoboutin/Qt/6.9.2/Src
+#PKG_LIBS=${PKG_LIBS}\ "${QT_BIN}"/qtbase/qml/QtQuick/Controls/libqtquickcontrols2plugin.a
+
+#PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
+#PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtWidgets.framework/Versions/A/QtWidgets
 
 #This settings are used by cmake when linking JASP, but this does not seem to be needed.
 #PKG_LIBS=${PKG_LIBS}\ -Xlinker\ -framework\ -Xlinker\ AGL\ -framework\ AppKit\ -framework\ ImageIO\ -framework\ Metal
