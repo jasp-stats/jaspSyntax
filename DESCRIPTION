@@ -1,7 +1,7 @@
 Package: jaspSyntax
 Type: Package
 Title: Makes JASP analyses available in R
-Version: 1.0
+Version: 1.2
 Date: 2020-12-01
 Author: JASP Team
 Website: jasp-stats.org
