@@ -1,7 +1,9 @@
-# To manually specify a location for QT_DIR, JASP_BUILD or JASP_SOURCE_DIR do
+# To manually specify a location for QT_BUILD_DIR, JASP_BUILD_DIR or JASP_SOURCE_DIR do
 #
-# options(configure.vars = c(jaspSyntax = "QT_DIR='<path>'"))
+# options(configure.vars = c(jaspSyntax = "QT_BUILD_DIR='<path>'"))
 # install.packages("jaspSyntax", ...)
+
+set -e
 
 if [ "${R_HOME}" ]; then
 	echo "Found R_HOME: ${R_HOME}"
@@ -9,73 +11,70 @@ else
 	echo "No R_HOME found!"
 fi
 
-if [ "${QT_DIR}" ]; then
-	echo "Found QT_DIR: ${QT_DIR}"
+if [ "${QT_BUILD_DIR}" ]; then
+	echo "Found QT_BUILD_DIR: ${QT_BUILD_DIR}"
 else
-	QT_DIR=~/Qt/6.9.2/macos
-	echo "Use default QT_DIR: ${QT_DIR}"
+	QT_BUILD_DIR=~/Qt/6.10.1/BuildStaticRelease
+	echo "Use default QT_BUILD_DIR: ${QT_BUILD_DIR}"
 fi
 
 if [[ ! "${JASP_BUILD_DIR}" ]]; then
-	JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop-Qt_6_9_2_for_macOS-Debug
+	JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop-Qt_6_10_1_for_macOS-Debug
 fi
 echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 
 if [[ ! "${JASP_SOURCE_DIR}" ]]; then
 	JASP_SOURCE_DIR=~/JASP/source/jasp-desktop
 fi
-echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"	
+echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
 
-if [[ ! "${JASP_DEBUG}" ]]; then
-	JASP_DEBUG=true
+if [[ ! "${BUILD_TYPE}" ]]; then
+	BUILD_TYPE=Debug
 fi
-echo "JASP_DEBUG: ${JASP_DEBUG}"
+echo "BUILD_TYPE: ${BUILD_TYPE}"
 
-if [ "${JASP_DEBUG}" = true ]; then
-	COMPILE_OPTIONS=-g\ -O0
+
+BUILD_DIR="src/backend/build"
+INSTALL_DIR="src"
+
+mkdir -p "$BUILD_DIR"
+mkdir -p "$INSTALL_DIR"
+
+cd "$BUILD_DIR" || {
+	echo "Build dir was not made! Check if you have permissions..."
+	exit 1
+}
+
+cmake -E env R_HOME="${R_HOME}" JASP_SOURCE_DIR="${JASP_SOURCE_DIR}" JASP_BUILD_DIR="${JASP_BUILD_DIR}" cmake ../src -DCMAKE_GENERATOR="Ninja" -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_PREFIX_PATH="${QT_BUILD_DIR}" || {
+	echo "CMake configuration failed..."
+	exit 1
+}
+
+cmake --build . || {
+	echo "Build failed..."
+	exit 1
+}
+
+# Copy the binary in src/
+DLL_NAME="libjaspSyntaxBackend.dylib"
+if [ -f "$DLL_NAME" ]; then
+	cp "$DLL_NAME" ../../$DLL_NAME
+	cp "$DLL_NAME" ../../../inst/libs/$DLL_NAME
+elif [ -f "${BUILD_TYPE}/$DLL_NAME" ]; then
+	cp "${BUILD_TYPE}/$DLL_NAME" ../../$DLL_NAME
+	cp "${BUILD_TYPE}/$DLL_NAME" ../../../inst/libs/$DLL_NAME
 else
-	COMPILE_OPTIONS=-O2
+	echo "Could not find built $DLL_NAME"
+	exit 1
 fi
 
-if [[ ! "${OS_ARCH}" ]]; then
-	OS_ARCH=$(uname -m)
-fi
-echo "OS_ARCH: ${OS_ARCH}"
+echo "** SUCCESSFULLY BUILT jaspSyntax BACKEND CODE! **"
 
-PKG_CXXFLAGS=${COMPILE_OPTIONS}\ -arch\ "${OS_ARCH}"
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -mmacosx-version-min=12.5\ -std=gnu++17\ -MD\ -MT
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DQT_DIR="${QT_DIR}"
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/SyntaxInterface
+CPPFLAGS=-I./backend\ -I"${JASP_SOURCE_DIR}"/SyntaxInterface
 
+cd ../../..
 
-PKG_LIBS=${COMPILE_OPTIONS}\ -arch\ "${OS_ARCH}"
-PKG_LIBS=${PKG_LIBS}\ -mmacosx-version-min=12.5\ -Wl,-search_paths_first\ -Wl,-headerpad_max_install_names
-PKG_LIBS=${PKG_LIBS}\ -F${QT_DIR}/lib
-PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/lib/libR.dylib"
-PKG_LIBS=${PKG_LIBS}\ "-Wl,-rpath,${QT_DIR}/lib -Wl"
+sed -e "s|@cppflags@|${CPPFLAGS}|" -e "s|@libflags@|${LINK_LIBRARIES}|" src/Makevars.in > src/Makevars
 
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/JASP/Controls/libQMLComponentsplugin.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/libQMLComponents.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/Common/libCommon.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/CommonData/libCommonData.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-InterfaceNoRInside.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/SyntaxInterface/libSyntaxInterface.a
-
-PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
-PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickWidgets.framework/Versions/A/QtQuickWidgets
-
-QT_BIN=/Users/brunoboutin/Qt/6.9.2/Src
-#PKG_LIBS=${PKG_LIBS}\ "${QT_BIN}"/qtbase/qml/QtQuick/Controls/libqtquickcontrols2plugin.a
-
-#PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
-#PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtWidgets.framework/Versions/A/QtWidgets
-
-#This settings are used by cmake when linking JASP, but this does not seem to be needed.
-#PKG_LIBS=${PKG_LIBS}\ -Xlinker\ -framework\ -Xlinker\ AGL\ -framework\ AppKit\ -framework\ ImageIO\ -framework\ Metal
-
-SRC_SOURCES="$(cd src/ && ls *.cpp | tr '\n' ' ')"
-
-
-sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
 
 exit 0

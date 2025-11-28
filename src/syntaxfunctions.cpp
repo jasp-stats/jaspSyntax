@@ -20,16 +20,16 @@
 using namespace Rcpp;
 
 #include "dataframeimporter.h"
-#include "syntaxbridge_interface.h"
+#include "backend/src/syntaxBackend.h"
 
-static bool		gl_param_dbInMemory				= false;
-static bool		gl_param_orderLabelsByValue		= true;
-static int		gl_param_threshold				= 10;
+static bool		global_param_dbInMemory				= false;
+static bool		global_param_orderLabelsByValue		= true;
+static int		global_param_threshold				= 10;
 
 // [[Rcpp::export]]
 void cleanUp()
 {
-	syntaxBridgeCleanup();
+	backend::cleanUp();
 }
 
 // [[Rcpp::export]]
@@ -39,17 +39,17 @@ bool setParameter(String name, SEXP value)
 
 	if (nameStr == "dbInMemory" && Rcpp::is<bool>(value))
 	{
-		gl_param_dbInMemory = Rcpp::as<bool>(value);
+		global_param_dbInMemory = Rcpp::as<bool>(value);
 		return true;
 	}
 	else if (nameStr == "threshold" && Rcpp::is<int>(value))
 	{
-		gl_param_threshold = Rcpp::as<int>(value);
+		global_param_threshold = Rcpp::as<int>(value);
 		return true;
 	}
 	else if (nameStr == "orderLabelsByValue" && Rcpp::is<bool>(value))
 	{
-		gl_param_orderLabelsByValue = Rcpp::as<bool>(value);
+		global_param_orderLabelsByValue = Rcpp::as<bool>(value);
 		return true;
 	}
 
@@ -61,7 +61,7 @@ void loadDataSet(Rcpp::List data)
 {
 	const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(data);
 
-	syntaxBridgeLoadDataSet(&dataset, gl_param_dbInMemory, gl_param_threshold, gl_param_orderLabelsByValue);
+	backend::loadDataSet(dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
 }
 
 
@@ -75,7 +75,7 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 				moduleNameStr	= moduleName.get_cstring();
 
 
-	return syntaxBridgeLoadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+	return backend::loadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
 }
 
 // [[Rcpp::export]]
@@ -84,7 +84,7 @@ String generateModuleWrappers(String modulePath, bool preloadData)
 
 	std::string modulePathStr = modulePath.get_cstring();
 
-	return syntaxBridgeGenerateModuleWrappers(modulePathStr.c_str(), preloadData);
+	return backend::generateModuleWrappers(modulePathStr.c_str(), preloadData);
 }
 
 
@@ -96,7 +96,7 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 				analysisNameStr	= analysisName.get_cstring(),
 				titleStr		= title.get_cstring();
 
-	return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), titleStr.c_str(), preloadData);
+	return backend::generateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), titleStr.c_str(), preloadData);
 }
 
 // [[Rcpp::export]]

@@ -61,3 +61,8 @@ Thumbs.db
 
 src/Makevars
 src/Makevars.win
+
+src/backend/build/
+src/backend/CMakeFiles/
+src/backend/CMakeCache.txt
+src/backend/Makefile
