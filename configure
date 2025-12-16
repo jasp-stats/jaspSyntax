@@ -1,9 +1,33 @@
-# To manually specify a location for QT_BUILD_DIR, JASP_BUILD_DIR or JASP_SOURCE_DIR do
+# To manually specify a location for JASP_BUILD_DIR or JASP_SOURCE_DIR do
 #
-# options(configure.vars = c(jaspSyntax = "QT_BUILD_DIR='<path>'"))
+# options(configure.vars = c(jaspSyntax = "JASP_SOURCE_DIR='<path>'"))
 # install.packages("jaspSyntax", ...)
 
 set -e
+
+
+function loadFile() {
+	DOWNLOAD_SUCCESS=1
+	if curl --version 2>&1 >/dev/null; then
+		echo "Downloading $1/$2 with curl"
+		curl --silent --output "src/$2" "$1/$2"
+		DOWNLOAD_SUCCESS=$?
+	fi
+
+	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
+		echo "seeing if wget is available"
+		if wget --version 2>&1 >/dev/null; then
+			wget --quiet -O  "src/$2" "$1/$2"
+			DOWNLOAD_SUCCESS=$?
+		fi
+	fi
+	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
+		printf "Installing jaspSyntax failed because the required file $2 is missing.\n\
+Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
+Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))"
+		exit 1
+	fi
+}
 
 if [ "${R_HOME}" ]; then
 	echo "Found R_HOME: ${R_HOME}"
@@ -11,70 +35,41 @@ else
 	echo "No R_HOME found!"
 fi
 
-if [ "${QT_BUILD_DIR}" ]; then
-	echo "Found QT_BUILD_DIR: ${QT_BUILD_DIR}"
-else
-	QT_BUILD_DIR=~/Qt/6.10.1/BuildStaticRelease
-	echo "Use default QT_BUILD_DIR: ${QT_BUILD_DIR}"
+PKG_CXXFLAGS=""
+
+if [[ "${JASP_SOURCE_DIR}" ]]; then
+	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
+	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\""
+elif [ ! -f "src/syntaxbridge_interface.h" ]; then
+	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
+		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
+	fi
+
+	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
 fi
 
-if [[ ! "${JASP_BUILD_DIR}" ]]; then
-	JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop-Qt_6_10_1_for_macOS-Debug
-fi
-echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
-
-if [[ ! "${JASP_SOURCE_DIR}" ]]; then
-	JASP_SOURCE_DIR=~/JASP/source/jasp-desktop
-fi
-echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
-
-if [[ ! "${BUILD_TYPE}" ]]; then
-	BUILD_TYPE=Debug
-fi
-echo "BUILD_TYPE: ${BUILD_TYPE}"
 
 
-BUILD_DIR="src/backend/build"
-INSTALL_DIR="src"
+DLL_NAME="libSyntaxInterface.dylib"
+SHORT_DLL_NAME="SyntaxInterface"
 
-mkdir -p "$BUILD_DIR"
-mkdir -p "$INSTALL_DIR"
+if [[ "${JASP_BUILD_DIR}" ]]; then
+	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
+	cp "${JASP_BUILD_DIR}/SyntaxInterface/$DLL_NAME" src/$DLL_NAME
+elif [ ! -f "src/${DLL_NAME}" ]; then
+	if [ "${JASP_FILE_SERVER}" = "" ]; then
+		JASP_FILE_SERVER="https://static.jasp-stats.org/development/"
+	fi
 
-cd "$BUILD_DIR" || {
-	echo "Build dir was not made! Check if you have permissions..."
-	exit 1
-}
-
-cmake -E env R_HOME="${R_HOME}" JASP_SOURCE_DIR="${JASP_SOURCE_DIR}" JASP_BUILD_DIR="${JASP_BUILD_DIR}" cmake ../src -DCMAKE_GENERATOR="Ninja" -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_PREFIX_PATH="${QT_BUILD_DIR}" || {
-	echo "CMake configuration failed..."
-	exit 1
-}
-
-cmake --build . || {
-	echo "Build failed..."
-	exit 1
-}
-
-# Copy the binary in src/
-DLL_NAME="libjaspSyntaxBackend.dylib"
-if [ -f "$DLL_NAME" ]; then
-	cp "$DLL_NAME" ../../$DLL_NAME
-	cp "$DLL_NAME" ../../../inst/libs/$DLL_NAME
-elif [ -f "${BUILD_TYPE}/$DLL_NAME" ]; then
-	cp "${BUILD_TYPE}/$DLL_NAME" ../../$DLL_NAME
-	cp "${BUILD_TYPE}/$DLL_NAME" ../../../inst/libs/$DLL_NAME
-else
-	echo "Could not find built $DLL_NAME"
-	exit 1
+	loadFile "${JASP_FILE_SERVER}" "${DLL_NAME}"
+	shasum -a 256 "src/${DLL_NAME}" | awk '$1!="633055d1a81c72a6f4cd2be10a23e38c1091aa4ffb1306ca88570d4c0536faf7"{print"Wrong checksum!"; exit 1}'
 fi
 
-echo "** SUCCESSFULLY BUILT jaspSyntax BACKEND CODE! **"
 
-CPPFLAGS=-I./backend\ -I"${JASP_SOURCE_DIR}"/SyntaxInterface
 
-cd ../../..
+cp src/"$DLL_NAME" inst/libs/$DLL_NAME
 
-sed -e "s|@cppflags@|${CPPFLAGS}|" -e "s|@libflags@|${LINK_LIBRARIES}|" src/Makevars.in > src/Makevars
+sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${SHORT_DLL_NAME}|" src/Makevars.in > src/Makevars
 
 
 exit 0

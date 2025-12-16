@@ -20,7 +20,8 @@
 using namespace Rcpp;
 
 #include "dataframeimporter.h"
-#include "backend/src/syntaxBackend.h"
+#include "syntaxbridge_interface.h"
+
 
 static bool		global_param_dbInMemory				= false;
 static bool		global_param_orderLabelsByValue		= true;
@@ -29,7 +30,7 @@ static int		global_param_threshold				= 10;
 // [[Rcpp::export]]
 void cleanUp()
 {
-	backend::cleanUp();
+	syntaxBridgeCleanup();
 }
 
 // [[Rcpp::export]]
@@ -61,7 +62,7 @@ void loadDataSet(Rcpp::List data)
 {
 	const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(data);
 
-	backend::loadDataSet(dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
+	syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
 }
 
 
@@ -75,7 +76,7 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 				moduleNameStr	= moduleName.get_cstring();
 
 
-	return backend::loadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+	return syntaxBridgeLoadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
 }
 
 // [[Rcpp::export]]
@@ -84,7 +85,7 @@ String generateModuleWrappers(String modulePath, bool preloadData)
 
 	std::string modulePathStr = modulePath.get_cstring();
 
-	return backend::generateModuleWrappers(modulePathStr.c_str(), preloadData);
+	return syntaxBridgeGenerateModuleWrappers(modulePathStr.c_str(), preloadData);
 }
 
 
@@ -96,7 +97,7 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 				analysisNameStr	= analysisName.get_cstring(),
 				titleStr		= title.get_cstring();
 
-	return backend::generateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), titleStr.c_str(), preloadData);
+	return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), titleStr.c_str(), preloadData);
 }
 
 // [[Rcpp::export]]
