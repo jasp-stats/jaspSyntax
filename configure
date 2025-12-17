@@ -51,7 +51,6 @@ fi
 
 
 DLL_NAME="libSyntaxInterface.dylib"
-SHORT_DLL_NAME="SyntaxInterface"
 
 if [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
@@ -69,7 +68,9 @@ fi
 
 cp src/"$DLL_NAME" inst/libs/$DLL_NAME
 
-sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${SHORT_DLL_NAME}|" src/Makevars.in > src/Makevars
+PKG_LIBS=-lSyntaxInterface
+
+sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
 
 
 exit 0

@@ -1,34 +1,86 @@
-# To manually specify a location for JASP_BUILD or JASP_BUILD_DIR do
+# To manually specify a location for JASP_BUILD_DIR or JASP_SOURCE_DIR do
 #
-# options(configure.vars = c(jaspSyntax = "JASP_BUILD='<path>'"))
+# options(configure.vars = c(jaspSyntax = "JASP_SOURCE_DIR='<path>'"))
 # install.packages("jaspSyntax", ...)
 
+set -e
+
+
+function loadFile() {
+	DOWNLOAD_SUCCESS=1
+	if curl --version 2>&1 >/dev/null; then
+		echo "Downloading $1/$2 with curl"
+		curl --silent --output "src/$2" "$1/$2"
+		DOWNLOAD_SUCCESS=$?
+	fi
+
+	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
+		echo "seeing if wget is available"
+		if wget --version 2>&1 >/dev/null; then
+			wget --quiet -O  "src/$2" "$1/$2"
+			DOWNLOAD_SUCCESS=$?
+		fi
+	fi
+	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
+		printf "Installing jaspSyntax failed because the required file $2 is missing.\n\
+Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
+Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))"
+		exit 1
+        fi
+	printf "$2 loaded from $1"
+}
+
 if [ "${R_HOME}" ]; then
-        echo "Found R_HOME: ${R_HOME}"
+	echo "Found R_HOME: ${R_HOME}"
 else
-        echo "No R_HOME found"
+	echo "No R_HOME found!"
 fi
 
-if [[ ! "${JASP_BUILD_DIR}" ]]; then
-	JASP_BUILD_DIR=C:/JASP/source/build-jasp-desktop-bruno-Desktop_Qt_6_8_2_MSVC2022_64bit-Debug
+PKG_CXXFLAGS=""
+
+if [[ "${JASP_SOURCE_DIR}" ]]; then
+	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
+	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\""
+elif [ ! -f "src/syntaxbridge_interface.h" ]; then
+	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
+		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
+	fi
+
+	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
 fi
-echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 
-if [[ ! "${JASP_SOURCE_DIR}" ]]; then
-	JASP_SOURCE_DIR=C:/JASP/source/jasp-desktop-bruno
+
+SYNTAXINTERFACE_DLL="SyntaxInterface.dll"
+if [[ "${JASP_BUILD_DIR}" ]]; then
+	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
+	cp "${JASP_BUILD_DIR}/$SYNTAXINTERFACE_DLL" src/$SYNTAXINTERFACE_DLL
+elif [ ! -f "src/${SYNTAXINTERFACE_DLL}" ]; then
+	if [ "${JASP_FILE_SERVER}" = "" ]; then
+		JASP_FILE_SERVER="https://static.jasp-stats.org/development/"
+	fi
+
+	loadFile "${JASP_FILE_SERVER}" "${SYNTAXINTERFACE_DLL}"
+        sha256sum "src/${SYNTAXINTERFACE_DLL}" | awk '$1!="c9bcbd1e7a2f498e5934b1aa43919f4bc3cac5941992b259b3f338d6fadf8913"{print"Wrong checksum for SyntaxInterface.dll!"; exit 1}'
 fi
-echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
+
+RINTERFACE_DLL="libR-InterfaceNoRInside.dll"
+if [[ "${JASP_BUILD_DIR}" ]]; then
+        cp "${JASP_BUILD_DIR}/R-Interface/${RINTERFACE_DLL}" src/
+elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
+	if [ "${JASP_FILE_SERVER}" = "" ]; then
+		JASP_FILE_SERVER="https://static.jasp-stats.org/development/"
+	fi
+
+	loadFile "${JASP_FILE_SERVER}" ${RINTERFACE_DLL}
+        sha256sum "src/${RINTERFACE_DLL}" | awk '$1!="84917cd81836aaa894c6a98f70ab471eb98ff12c70173616a7ecc87f768ee341"{print"Wrong checksum for SyntaxInterface.dll!"; exit 1}'
+fi
 
 
-SRC_SOURCES="$(cd src/ && ls *.cpp | tr '\n' ' ')"
-
-PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/bin/x64/R.dll"
+#PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/bin/x64/R.dll"
 
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DUNICODE\ -DWIN32\ -DWIN32_LEAN_AND_MEAN\ -DWIN64\ -D_ENABLE_EXTENDED_ALIGNED_STORAGE
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/SyntaxInterface
 
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/SyntaxInterface.dll
-
+PKG_LIBS="-lSyntaxInterface -llibR-InterfaceNoRInside"
 
 sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
 
