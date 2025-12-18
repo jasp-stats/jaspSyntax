@@ -65,7 +65,7 @@ elif [ ! -f "src/${DLL_NAME}" ]; then
 fi
 
 
-
+mkdir -p inst/libs
 cp src/"$DLL_NAME" inst/libs/$DLL_NAME
 
 PKG_LIBS=-lSyntaxInterface
