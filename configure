@@ -49,7 +49,6 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 fi
 
 
-
 DLL_NAME="libSyntaxInterface.dylib"
 
 if [[ "${JASP_BUILD_DIR}" ]]; then
@@ -61,7 +60,11 @@ elif [ ! -f "src/${DLL_NAME}" ]; then
 	fi
 
 	loadFile "${JASP_FILE_SERVER}" "${DLL_NAME}"
-	shasum -a 256 "src/${DLL_NAME}" | awk '$1!="f65285c4fb4d51ee485273cd0202405f5e9043a2dfd893108a6e0dd0df990cca"{print"Wrong checksum!"; rm src/*.dylib; exit 1}'
+	if [[ ! $(shasum -a 256 src/${DLL_NAME}) =~ "f65285c4fb4d51ee485273cd0202405f5e9043a2dfd893108a6e0dd0df990cca" ]]; then
+		echo "Wrong checksum!"
+		rm src/${DLL_NAME}
+		exit 1
+	fi
 fi
 
 
