@@ -1,7 +1,7 @@
 # To manually specify a location for JASP_BUILD_DIR or JASP_SOURCE_DIR do
 #
 # options(configure.vars = c(jaspSyntax = "JASP_SOURCE_DIR='<path>'"))
-# install.packages("jaspSyntax", ...)
+# install.packages("jaspSyntax", repos = NULL, type = "source")
 
 set -e
 
@@ -26,7 +26,7 @@ function loadFile() {
 Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
 Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))"
 		exit 1
-        fi
+    fi
 	printf "$2 loaded from $1"
 }
 
@@ -49,7 +49,6 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
 fi
 
-
 SYNTAXINTERFACE_DLL="SyntaxInterface.dll"
 if [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
@@ -60,7 +59,7 @@ elif [ ! -f "src/${SYNTAXINTERFACE_DLL}" ]; then
 	fi
 
 	loadFile "${JASP_FILE_SERVER}" "${SYNTAXINTERFACE_DLL}"
-	if [[ ! $(shasum -a 256 src/${SYNTAXINTERFACE_DLL}) =~ "c9bcbd1e7a2f498e5934b1aa43919f4bc3cac5941992b259b3f338d6fadf8913" ]]; then
+	if [[ ! $(sha256sum src/${SYNTAXINTERFACE_DLL}) =~ "c9bcbd1e7a2f498e5934b1aa43919f4bc3cac5941992b259b3f338d6fadf8913" ]]; then
 		echo "Wrong checksum!"
 		rm src/${SYNTAXINTERFACE_DLL}
 		exit 1
@@ -76,7 +75,7 @@ elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
 	fi
 
 	loadFile "${JASP_FILE_SERVER}" ${RINTERFACE_DLL}
-	if [[ ! $(shasum -a 256 src/${RINTERFACE_DLL}) =~ "84917cd81836aaa894c6a98f70ab471eb98ff12c70173616a7ecc87f768ee341" ]]; then
+	if [[ ! $(sha256sum src/${RINTERFACE_DLL}) =~ "84917cd81836aaa894c6a98f70ab471eb98ff12c70173616a7ecc87f768ee341" ]]; then
 		echo "Wrong checksum!"
 		rm src/${RINTERFACE_DLL}
 		exit 1
