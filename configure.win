@@ -49,16 +49,17 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
 fi
 
-SYNTAXINTERFACE_DLL="SyntaxInterface.dll"
+SYNTAXINTERFACE_DLL="SyntaxInterfaceDebug.dll"
 if [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 	cp "${JASP_BUILD_DIR}/$SYNTAXINTERFACE_DLL" src/$SYNTAXINTERFACE_DLL
 elif [ ! -f "src/${SYNTAXINTERFACE_DLL}" ]; then
 	if [ "${JASP_FILE_SERVER}" = "" ]; then
-		JASP_FILE_SERVER="https://static.jasp-stats.org/development/"
+		JASP_FILE_SERVER="https://static.jasp-stats.org/jaspSyntax/1.0/"
 	fi
 
 	loadFile "${JASP_FILE_SERVER}" "${SYNTAXINTERFACE_DLL}"
+	
 	if [[ ! $(sha256sum src/${SYNTAXINTERFACE_DLL}) =~ "c9bcbd1e7a2f498e5934b1aa43919f4bc3cac5941992b259b3f338d6fadf8913" ]]; then
 		echo "Wrong checksum!"
 		rm src/${SYNTAXINTERFACE_DLL}
@@ -71,7 +72,7 @@ if [[ "${JASP_BUILD_DIR}" ]]; then
         cp "${JASP_BUILD_DIR}/R-Interface/${RINTERFACE_DLL}" src/
 elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
 	if [ "${JASP_FILE_SERVER}" = "" ]; then
-		JASP_FILE_SERVER="https://static.jasp-stats.org/development/"
+		JASP_FILE_SERVER="https://static.jasp-stats.org/jaspSyntax/1.0/"
 	fi
 
 	loadFile "${JASP_FILE_SERVER}" ${RINTERFACE_DLL}

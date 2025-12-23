@@ -56,7 +56,7 @@ if [[ "${JASP_BUILD_DIR}" ]]; then
 	cp "${JASP_BUILD_DIR}/SyntaxInterface/$DLL_NAME" src/$DLL_NAME
 elif [ ! -f "src/${DLL_NAME}" ]; then
 	if [ "${JASP_FILE_SERVER}" = "" ]; then
-		JASP_FILE_SERVER="https://static.jasp-stats.org/development/"
+		JASP_FILE_SERVER="https://static.jasp-stats.org/jaspSyntax/1.0/"
 	fi
 
 	loadFile "${JASP_FILE_SERVER}" "${DLL_NAME}"
