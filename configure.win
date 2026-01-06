@@ -49,7 +49,7 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
 fi
 
-SYNTAXINTERFACE_DLL="SyntaxInterfaceDebug.dll"
+SYNTAXINTERFACE_DLL="SyntaxInterface.dll"
 if [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 	cp "${JASP_BUILD_DIR}/$SYNTAXINTERFACE_DLL" src/$SYNTAXINTERFACE_DLL
