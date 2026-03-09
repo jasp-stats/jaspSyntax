@@ -17,12 +17,12 @@ loadQmlAndParseOptions <- function(moduleName, analysisName, qmlFile, options, v
     .Call(`_jaspSyntax_loadQmlAndParseOptions`, moduleName, analysisName, qmlFile, options, version, preloadData)
 }
 
-generateModuleWrappers <- function(modulePath, preloadData) {
-    .Call(`_jaspSyntax_generateModuleWrappers`, modulePath, preloadData)
+generateModuleWrappers <- function(modulePath) {
+    .Call(`_jaspSyntax_generateModuleWrappers`, modulePath)
 }
 
-generateAnalysisWrapper <- function(modulePath, qmlFileName, analysisName, title, preloadData) {
-    .Call(`_jaspSyntax_generateAnalysisWrapper`, modulePath, qmlFileName, analysisName, title, preloadData)
+generateAnalysisWrapper <- function(modulePath, analysisName) {
+    .Call(`_jaspSyntax_generateAnalysisWrapper`, modulePath, analysisName)
 }
 
 getVariableNames <- function() {

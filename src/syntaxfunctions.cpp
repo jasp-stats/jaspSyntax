@@ -80,24 +80,22 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 }
 
 // [[Rcpp::export]]
-String generateModuleWrappers(String modulePath, bool preloadData)
+String generateModuleWrappers(String modulePath)
 {
 
 	std::string modulePathStr = modulePath.get_cstring();
 
-	return syntaxBridgeGenerateModuleWrappers(modulePathStr.c_str(), preloadData);
+	return syntaxBridgeGenerateModuleWrappers(modulePathStr.c_str());
 }
 
 
 // [[Rcpp::export]]
-String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, String title, bool preloadData)
+String generateAnalysisWrapper(String modulePath, String analysisName)
 {
-	std::string qmlFileNameStr	= qmlFileName.get_cstring(),
-				modulePathStr	= modulePath.get_cstring(),
-				analysisNameStr	= analysisName.get_cstring(),
-				titleStr		= title.get_cstring();
+	std::string modulePathStr	= modulePath.get_cstring(),
+				analysisNameStr	= analysisName.get_cstring();
 
-	return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), titleStr.c_str(), preloadData);
+	return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), analysisNameStr.c_str());
 }
 
 // [[Rcpp::export]]
