@@ -21,7 +21,7 @@ using namespace Rcpp;
 
 #include "dataframeimporter.h"
 #include "syntaxbridge_interface.h"
-
+#include "json/json.h"
 
 static bool		global_param_dbInMemory				= false;
 static bool		global_param_orderLabelsByValue		= true;
@@ -82,10 +82,52 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 // [[Rcpp::export]]
 String generateModuleWrappers(String modulePath)
 {
-
 	std::string modulePathStr = modulePath.get_cstring();
 
 	return syntaxBridgeGenerateModuleWrappers(modulePathStr.c_str());
+}
+
+// [[Rcpp::export]]
+Rcpp::List parseDescription(String modulePath)
+{
+	std::string modulePathStr = modulePath.get_cstring();
+
+	std::string rawDescription = syntaxBridgeParseDescription(modulePathStr.c_str());
+
+	Json::Value parsedDescription;
+	Json::Reader().parse(rawDescription, parsedDescription);
+
+	Rcpp::List result;
+
+	result["name"]				= parsedDescription["name"].asString();
+	result["title"]				= parsedDescription["title"].asString();
+	result["author"]			= parsedDescription["author"].asString();
+	result["website"]			= parsedDescription["website"].asString();
+	result["license"]			= parsedDescription["license"].asString();
+	result["maintainer"]		= parsedDescription["maintainer"].asString();
+	result["description"]		= parsedDescription["description"].asString();
+	result["requiresData"]		= parsedDescription["requiresData"].asBool();
+	result["hasWrappers"]		= parsedDescription["hasWrappers"].asBool();
+	result["isCommon"]			= parsedDescription["isCommon"].asBool();
+	result["version"]			= parsedDescription["version"].asString();
+
+	Rcpp::List analyses;
+
+	for (const Json::Value & jsonAnalysis : parsedDescription["analyses"])
+	{
+		Rcpp::List analysis;
+		analysis["name"]		= jsonAnalysis["name"].asString();
+		analysis["qml"]			= jsonAnalysis["qml"].asString();
+		analysis["title"]		= jsonAnalysis["title"].asString();
+		analysis["preloadData"] = jsonAnalysis["preloadData"].asBool();
+		analysis["hasWrapper"]	= jsonAnalysis["hasWrapper"].asBool();
+
+		analyses.push_back(analysis);
+	}
+
+	result["analyses"] = analyses;
+
+	return result;
 }
 
 

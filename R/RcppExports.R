@@ -21,6 +21,10 @@ generateModuleWrappers <- function(modulePath) {
     .Call(`_jaspSyntax_generateModuleWrappers`, modulePath)
 }
 
+parseDescription <- function(modulePath) {
+    .Call(`_jaspSyntax_parseDescription`, modulePath)
+}
+
 generateAnalysisWrapper <- function(modulePath, analysisName) {
     .Call(`_jaspSyntax_generateAnalysisWrapper`, modulePath, analysisName)
 }

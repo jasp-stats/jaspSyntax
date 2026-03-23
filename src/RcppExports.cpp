@@ -68,6 +68,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// parseDescription
+Rcpp::List parseDescription(String modulePath);
+RcppExport SEXP _jaspSyntax_parseDescription(SEXP modulePathSEXP) {
+BEGIN_RCPP
+	Rcpp::RObject rcpp_result_gen;
+	Rcpp::RNGScope rcpp_rngScope_gen;
+	Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
+	rcpp_result_gen = Rcpp::wrap(parseDescription(modulePath));
+	return rcpp_result_gen;
+END_RCPP
+}
 // generateAnalysisWrapper
 String generateAnalysisWrapper(String modulePath, String analysisName);
 RcppExport SEXP _jaspSyntax_generateAnalysisWrapper(SEXP modulePathSEXP, SEXP analysisNameSEXP) {
@@ -108,6 +119,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
     {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},
 	{"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 1},
+	{"_jaspSyntax_parseDescription", (DL_FUNC) &_jaspSyntax_parseDescription, 1},
 	{"_jaspSyntax_generateAnalysisWrapper", (DL_FUNC) &_jaspSyntax_generateAnalysisWrapper, 2},
     {"_jaspSyntax_getVariableNames", (DL_FUNC) &_jaspSyntax_getVariableNames, 0},
     {"_jaspSyntax_getVariableValues", (DL_FUNC) &_jaspSyntax_getVariableValues, 1},

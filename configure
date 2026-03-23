@@ -36,16 +36,27 @@ else
 fi
 
 PKG_CXXFLAGS=""
+JASP_SOURCE_DIR="/Users/brunoboutin/JASP/source/jasp-desktop"
+JASP_BUILD_DIR="/Users/brunoboutin/JASP/source/build-jasp-desktop-Qt_6_10_2_Static_for_macOS-Debug"
+
 
 if [[ "${JASP_SOURCE_DIR}" ]]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
-	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\""
+	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\" -I\"${JASP_SOURCE_DIR}/Common\""
 elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
 		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
 	fi
 
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
+
+	mkdir -p 'src/json'
+
+	JSON_FILES="allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h"
+
+	for i in ${JSON_FILES}; do
+		loadFile "${GITHUB_JASP_DESKTOP_FILES}/Common/json/${i}" "json/${i}"
+	done
 fi
 
 
