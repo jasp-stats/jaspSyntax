@@ -36,8 +36,8 @@ else
 fi
 
 PKG_CXXFLAGS=""
-JASP_SOURCE_DIR="/Users/brunoboutin/JASP/source/jasp-desktop"
-JASP_BUILD_DIR="/Users/brunoboutin/JASP/source/build-jasp-desktop-Qt_6_10_2_Static_for_macOS-Debug"
+#JASP_SOURCE_DIR=""
+#JASP_BUILD_DIR=""
 
 
 if [[ "${JASP_SOURCE_DIR}" ]]; then
@@ -45,7 +45,7 @@ if [[ "${JASP_SOURCE_DIR}" ]]; then
 	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\" -I\"${JASP_SOURCE_DIR}/Common\""
 elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
-		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
+		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/boutinb/jasp-desktop/refs/heads/useJASPModuleInRSyntax"
 	fi
 
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
@@ -55,7 +55,7 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	JSON_FILES="allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h"
 
 	for i in ${JSON_FILES}; do
-		loadFile "${GITHUB_JASP_DESKTOP_FILES}/Common/json/${i}" "json/${i}"
+		loadFile "${GITHUB_JASP_DESKTOP_FILES}/Common" "json/${i}"
 	done
 fi
 
@@ -67,11 +67,11 @@ if [[ "${JASP_BUILD_DIR}" ]]; then
 	cp "${JASP_BUILD_DIR}/SyntaxInterface/$DLL_NAME" src/$DLL_NAME
 elif [ ! -f "src/${DLL_NAME}" ]; then
 	if [ "${JASP_FILE_SERVER}" = "" ]; then
-		JASP_FILE_SERVER="https://static.jasp-stats.org/jaspSyntax/1.0/"
+		JASP_FILE_SERVER="https://static.jasp-stats.org/jaspSyntax/0.96.0/"
 	fi
 
 	loadFile "${JASP_FILE_SERVER}" "${DLL_NAME}"
-	if [[ ! $(shasum -a 256 src/${DLL_NAME}) =~ "f65285c4fb4d51ee485273cd0202405f5e9043a2dfd893108a6e0dd0df990cca" ]]; then
+	if [[ ! $(shasum -a 256 src/${DLL_NAME}) =~ "3eaaee42039f1c4ee92392e01ee1b2c323476dcdf93d08867584219eb5659fad" ]]; then
 		echo "Wrong checksum!"
 		rm src/${DLL_NAME}
 		exit 1
