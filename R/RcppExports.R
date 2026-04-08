@@ -25,15 +25,19 @@ parseDescription <- function(modulePath) {
     .Call(`_jaspSyntax_parseDescription`, modulePath)
 }
 
+loadDataSetFromJaspFile <- function(jaspFilePath) {
+    invisible(.Call(`_jaspSyntax_loadDataSetFromJaspFile`, jaspFilePath))
+}
+
+analysisOptionsFromJaspFile <- function(jaspFilePath, analysisNr) {
+    .Call(`_jaspSyntax_analysisOptionsFromJaspFile`, jaspFilePath, analysisNr)
+}
+
 generateAnalysisWrapper <- function(modulePath, analysisName) {
     .Call(`_jaspSyntax_generateAnalysisWrapper`, modulePath, analysisName)
 }
 
 getVariableNames <- function() {
     .Call(`_jaspSyntax_getVariableNames`)
-}
-
-getVariableValues <- function(variableName) {
-    .Call(`_jaspSyntax_getVariableValues`, variableName)
 }
 

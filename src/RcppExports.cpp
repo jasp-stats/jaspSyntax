@@ -64,7 +64,7 @@ BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
-	rcpp_result_gen = Rcpp::wrap(generateModuleWrappers(modulePath));
+    rcpp_result_gen = Rcpp::wrap(generateModuleWrappers(modulePath));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -72,11 +72,33 @@ END_RCPP
 Rcpp::List parseDescription(String modulePath);
 RcppExport SEXP _jaspSyntax_parseDescription(SEXP modulePathSEXP) {
 BEGIN_RCPP
-	Rcpp::RObject rcpp_result_gen;
-	Rcpp::RNGScope rcpp_rngScope_gen;
-	Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
-	rcpp_result_gen = Rcpp::wrap(parseDescription(modulePath));
-	return rcpp_result_gen;
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
+    rcpp_result_gen = Rcpp::wrap(parseDescription(modulePath));
+    return rcpp_result_gen;
+END_RCPP
+}
+// loadDataSetFromJaspFile
+void loadDataSetFromJaspFile(String jaspFilePath);
+RcppExport SEXP _jaspSyntax_loadDataSetFromJaspFile(SEXP jaspFilePathSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type jaspFilePath(jaspFilePathSEXP);
+    loadDataSetFromJaspFile(jaspFilePath);
+    return R_NilValue;
+END_RCPP
+}
+// analysisOptionsFromJaspFile
+Rcpp::List analysisOptionsFromJaspFile(String jaspFilePath, int analysisNr);
+RcppExport SEXP _jaspSyntax_analysisOptionsFromJaspFile(SEXP jaspFilePathSEXP, SEXP analysisNrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type jaspFilePath(jaspFilePathSEXP);
+    Rcpp::traits::input_parameter< int >::type analysisNr(analysisNrSEXP);
+    rcpp_result_gen = Rcpp::wrap(analysisOptionsFromJaspFile(jaspFilePath, analysisNr));
+    return rcpp_result_gen;
 END_RCPP
 }
 // generateAnalysisWrapper
@@ -87,7 +109,7 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
     Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
-	rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, analysisName));
+    rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, analysisName));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -101,28 +123,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// getVariableValues
-Rcpp::List getVariableValues(String variableName);
-RcppExport SEXP _jaspSyntax_getVariableValues(SEXP variableNameSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< String >::type variableName(variableNameSEXP);
-    rcpp_result_gen = Rcpp::wrap(getVariableValues(variableName));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_cleanUp", (DL_FUNC) &_jaspSyntax_cleanUp, 0},
     {"_jaspSyntax_setParameter", (DL_FUNC) &_jaspSyntax_setParameter, 2},
     {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
     {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},
-	{"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 1},
-	{"_jaspSyntax_parseDescription", (DL_FUNC) &_jaspSyntax_parseDescription, 1},
-	{"_jaspSyntax_generateAnalysisWrapper", (DL_FUNC) &_jaspSyntax_generateAnalysisWrapper, 2},
+    {"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 1},
+    {"_jaspSyntax_parseDescription", (DL_FUNC) &_jaspSyntax_parseDescription, 1},
+    {"_jaspSyntax_loadDataSetFromJaspFile", (DL_FUNC) &_jaspSyntax_loadDataSetFromJaspFile, 1},
+    {"_jaspSyntax_analysisOptionsFromJaspFile", (DL_FUNC) &_jaspSyntax_analysisOptionsFromJaspFile, 2},
+    {"_jaspSyntax_generateAnalysisWrapper", (DL_FUNC) &_jaspSyntax_generateAnalysisWrapper, 2},
     {"_jaspSyntax_getVariableNames", (DL_FUNC) &_jaspSyntax_getVariableNames, 0},
-    {"_jaspSyntax_getVariableValues", (DL_FUNC) &_jaspSyntax_getVariableValues, 1},
     {NULL, NULL, 0}
 };
 
