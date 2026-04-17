@@ -129,7 +129,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-v2-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
+          key: qt-static-v3-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
 
       - name: Download Qt source
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -148,9 +148,13 @@ jobs:
             -prefix ${{ github.workspace }}/qt-static \
             -submodules ${{ env.QT_SUBMODULES }} \
             -nomake examples -nomake tests -nomake benchmarks \
+            -optimize-size \
             -no-feature-printsupport -no-feature-sql \
             -no-feature-dbus -no-feature-cups \
-            -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+            -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+               -DQT_FEATURE_qml_jit=OFF \
+               -DQT_FEATURE_qml_debug=OFF \
+               -DQT_FEATURE_qml_network=OFF
           cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
           cmake --install .
           cd .. && rm -rf qt-src
@@ -165,8 +169,12 @@ jobs:
             -prefix ${{ github.workspace }}\qt-static ^
             -submodules ${{ env.QT_SUBMODULES }} ^
             -nomake examples -nomake tests -nomake benchmarks ^
+            -optimize-size ^
             -no-feature-printsupport -no-feature-sql ^
-            -no-feature-dbus -no-feature-cups
+            -no-feature-dbus -no-feature-cups ^
+            -- -DQT_FEATURE_qml_jit=OFF ^
+               -DQT_FEATURE_qml_debug=OFF ^
+               -DQT_FEATURE_qml_network=OFF
           cmake --build . --parallel
           cmake --install .
           cd .. && rmdir /s /q qt-src
@@ -176,7 +184,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-v2-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
+          key: qt-static-v3-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
 
       # ---- Setup R (after Qt build to avoid rtools45 PATH pollution on Windows) ----
 
@@ -236,9 +244,17 @@ jobs:
             -DINSTALL_R_MODULES=OFF ^
             -DBUILD_TESTS=OFF
 
-      - name: Build SyntaxInterface
+      - name: Build SyntaxInterface (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: cmake --build build --target SyntaxInterface --parallel
+
+      - name: Build SyntaxInterface (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          cmake --build build --target SyntaxInterface --parallel
 
       # ---- Collect and upload artifact ----
 
