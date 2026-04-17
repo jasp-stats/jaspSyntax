@@ -90,6 +90,10 @@ else
 fi
 
 PKG_CXXFLAGS=""
+JASP_SOURCE_DIR="${JASP_SOURCE_DIR:-}"
+JASP_BUILD_DIR="${JASP_BUILD_DIR:-}"
+# JASPSYNTAX_LIB_DIR: directory containing pre-built SyntaxInterface.dll (and optionally libR-InterfaceNoRInside.dll)
+JASPSYNTAX_LIB_DIR="${JASPSYNTAX_LIB_DIR:-}"
 
 # ---------- Download header files if needed ----------
 
@@ -117,7 +121,10 @@ fi
 SYNTAXINTERFACE_DLL="SyntaxInterface.dll"
 SYNTAXINTERFACE_ASSET="SyntaxInterface-windows-x86_64.dll"
 
-if [[ "${JASP_BUILD_DIR}" ]]; then
+if [[ "${JASPSYNTAX_LIB_DIR}" ]]; then
+	echo "Using JASPSYNTAX_LIB_DIR: ${JASPSYNTAX_LIB_DIR}"
+	cp "${JASPSYNTAX_LIB_DIR}/${SYNTAXINTERFACE_DLL}" "src/${SYNTAXINTERFACE_DLL}"
+elif [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 	cp "${JASP_BUILD_DIR}/${SYNTAXINTERFACE_DLL}" "src/${SYNTAXINTERFACE_DLL}"
 elif [ ! -f "src/${SYNTAXINTERFACE_DLL}" ]; then
@@ -135,7 +142,9 @@ fi
 RINTERFACE_DLL="libR-InterfaceNoRInside.dll"
 RINTERFACE_ASSET="libR-InterfaceNoRInside-windows-x86_64.dll"
 
-if [[ "${JASP_BUILD_DIR}" ]]; then
+if [[ "${JASPSYNTAX_LIB_DIR}" ]] && [ -f "${JASPSYNTAX_LIB_DIR}/${RINTERFACE_DLL}" ]; then
+	cp "${JASPSYNTAX_LIB_DIR}/${RINTERFACE_DLL}" src/
+elif [[ "${JASP_BUILD_DIR}" ]]; then
 	cp "${JASP_BUILD_DIR}/R-Interface/${RINTERFACE_DLL}" src/
 elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
 	echo "Downloading pre-built ${RINTERFACE_ASSET} from GitHub Release (${GITHUB_RELEASE_TAG})..."

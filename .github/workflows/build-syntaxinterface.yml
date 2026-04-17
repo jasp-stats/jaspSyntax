@@ -129,7 +129,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-v3-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
+          key: qt-static-v4-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
 
       - name: Download Qt source
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -149,6 +149,7 @@ jobs:
             -submodules ${{ env.QT_SUBMODULES }} \
             -nomake examples -nomake tests -nomake benchmarks \
             -optimize-size \
+            -no-icu \
             -no-feature-printsupport -no-feature-sql \
             -no-feature-dbus -no-feature-cups \
             -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
@@ -170,6 +171,7 @@ jobs:
             -submodules ${{ env.QT_SUBMODULES }} ^
             -nomake examples -nomake tests -nomake benchmarks ^
             -optimize-size ^
+            -no-icu ^
             -no-feature-printsupport -no-feature-sql ^
             -no-feature-dbus -no-feature-cups ^
             -- -DQT_FEATURE_qml_jit=OFF ^
@@ -184,7 +186,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-v3-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
+          key: qt-static-v4-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
 
       # ---- Setup R (after Qt build to avoid rtools45 PATH pollution on Windows) ----
 
