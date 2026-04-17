@@ -112,17 +112,6 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
           vcpkg install boost-headers boost-filesystem boost-system boost-date-time boost-timer boost-chrono sqlite3 libarchive --triplet x64-windows-static
 
-      # ---- Setup R ----
-
-      - name: Setup R
-        uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: 'release'
-
-      - name: Install Rcpp and RInside
-        run: |
-          Rscript -e 'install.packages(c("Rcpp", "RInside"), repos = "https://cloud.r-project.org")'
-
       # ---- Install Qt from source and build static ----
 
       - name: Cache static Qt build
@@ -167,6 +156,17 @@ jobs:
           cmake --build . --parallel
           cmake --install .
 
+      # ---- Setup R (after Qt build to avoid rtools45 PATH pollution on Windows) ----
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - name: Install Rcpp and RInside
+        run: |
+          Rscript -e 'install.packages(c("Rcpp", "RInside"), repos = "https://cloud.r-project.org")'
+
       # ---- Clone and build jasp-desktop / SyntaxInterface ----
 
       - name: Clone jasp-desktop
@@ -175,6 +175,7 @@ jobs:
           repository: jasp-stats/jasp-desktop
           ref: ${{ env.JASP_DESKTOP_REF }}
           path: jasp-desktop
+          submodules: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure jasp-desktop (Unix)
