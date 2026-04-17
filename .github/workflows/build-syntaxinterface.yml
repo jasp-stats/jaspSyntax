@@ -195,6 +195,15 @@ jobs:
         with:
           r-version: 'release'
 
+      - name: Install rtools45 MinGW toolchain (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # R-Interface on Windows is cross-compiled with MinGW (R uses MinGW, not MSVC).
+          # setup-r installs rtools45 but the ucrt64 toolchain may not be present.
+          # See also: jasp-desktop/Docs/development/jasp-build-guide-windows.md
+          /c/rtools45/usr/bin/pacman.exe -Sy --noconfirm mingw-w64-ucrt-x86_64-toolchain make
+
       - name: Install Rcpp and RInside
         run: |
           Rscript -e 'install.packages(c("Rcpp", "RInside"), repos = "https://cloud.r-project.org")'
