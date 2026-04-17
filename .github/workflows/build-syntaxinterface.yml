@@ -86,8 +86,7 @@ jobs:
             libxcb-xinerama0 libxcb-cursor0 \
             libboost-dev libboost-filesystem-dev libboost-system-dev \
             libboost-date-time-dev libboost-timer-dev libboost-chrono-dev \
-            librdata-dev libfreexl-dev libminizip-dev libglpk-dev \
-            libjsoncpp-dev libnss3-dev libnspr4-dev \
+            libminizip-dev libnss3-dev libnspr4-dev \
             libxcomposite-dev libxdamage-dev libxrandr-dev libxtst-dev \
             libxi-dev libasound2-dev libxkbfile-dev \
             libxcb-icccm4-dev libxcb-shape0-dev libxcb-keysyms1-dev \
@@ -106,18 +105,12 @@ jobs:
         run: |
           choco install ninja -y
 
-      # ---- Install readstat (Linux) ----
-
-      - name: Install ReadStat from source (Linux)
-        if: runner.os == 'Linux'
+      - name: Install C++ dependencies via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
         run: |
-          wget -q https://github.com/WizardMac/ReadStat/releases/download/v1.1.9/readstat-1.1.9.tar.gz
-          tar -xzf readstat-1.1.9.tar.gz
-          cd readstat-1.1.9
-          ./configure --prefix=/usr/local
-          make -j$(nproc) CFLAGS='-Wno-error=use-after-free'
-          sudo make install
-          sudo ldconfig
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          vcpkg install boost-headers boost-filesystem boost-system boost-date-time boost-timer boost-chrono sqlite3 libarchive --triplet x64-windows-static
 
       # ---- Setup R ----
 
@@ -138,6 +131,7 @@ jobs:
         with:
           path: ${{ github.workspace }}/qt-static
           key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
+          save-always: true
 
       - name: Download Qt source
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -155,6 +149,7 @@ jobs:
           ./configure -release -static -opensource -confirm-license \
             -prefix ${{ github.workspace }}/qt-static \
             -submodules ${{ env.QT_SUBMODULES }} \
+            -nomake examples -nomake tests -nomake benchmarks \
             -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
           cmake --install .
@@ -165,9 +160,10 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
           cd qt-src
-          configure.bat -release -static -opensource -confirm-license ^
+          call configure.bat -release -static -opensource -confirm-license ^
             -prefix ${{ github.workspace }}\qt-static ^
-            -submodules ${{ env.QT_SUBMODULES }}
+            -submodules ${{ env.QT_SUBMODULES }} ^
+            -nomake examples -nomake tests -nomake benchmarks
           cmake --build . --parallel
           cmake --install .
 
@@ -186,10 +182,17 @@ jobs:
         shell: bash
         run: |
           R_HOME=$(R RHOME)
+          # On macOS, add brew prefix paths for keg-only libraries
+          EXTRA_PREFIX=""
+          if [ "$(uname)" = "Darwin" ]; then
+            EXTRA_PREFIX="$(brew --prefix libarchive);$(brew --prefix sqlite);$(brew --prefix openssl)"
+          fi
           cmake -G Ninja -S jasp-desktop -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/qt-static \
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt-static;${EXTRA_PREFIX}" \
             -DCUSTOM_R_PATH="${R_HOME}" \
+            -DREQUIRE_GITHUB_PAT=OFF \
+            -DUSE_CONAN=OFF \
             -DINSTALL_R_MODULES=OFF \
             -DBUILD_TESTS=OFF
 
@@ -202,7 +205,11 @@ jobs:
           cmake -G Ninja -S jasp-desktop -B build ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}\qt-static ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake ^
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static ^
             -DVS_PATH="C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC" ^
+            -DREQUIRE_GITHUB_PAT=OFF ^
+            -DUSE_CONAN=OFF ^
             -DINSTALL_R_MODULES=OFF ^
             -DBUILD_TESTS=OFF
 
