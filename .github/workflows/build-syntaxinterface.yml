@@ -151,11 +151,10 @@ jobs:
         if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os != 'Windows'
         shell: bash
         run: |
-          SUBMODULES_SPACE="${QT_SUBMODULES//,/ }"
           cd qt-src
           ./configure -release -static -opensource -confirm-license \
             -prefix ${{ github.workspace }}/qt-static \
-            -submodules ${SUBMODULES_SPACE} \
+            -submodules ${{ env.QT_SUBMODULES }} \
             -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
           cmake --install .
@@ -166,10 +165,9 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
           cd qt-src
-          set "SUBMODULES_SPACE=%QT_SUBMODULES:,= %"
           configure.bat -release -static -opensource -confirm-license ^
             -prefix ${{ github.workspace }}\qt-static ^
-            -submodules %SUBMODULES_SPACE%
+            -submodules ${{ env.QT_SUBMODULES }}
           cmake --build . --parallel
           cmake --install .
 
@@ -204,6 +202,7 @@ jobs:
           cmake -G Ninja -S jasp-desktop -B build ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}\qt-static ^
+            -DVS_PATH="C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC" ^
             -DINSTALL_R_MODULES=OFF ^
             -DBUILD_TESTS=OFF
 
