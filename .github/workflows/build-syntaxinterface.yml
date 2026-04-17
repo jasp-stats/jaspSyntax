@@ -120,7 +120,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
-          vcpkg install boost-headers boost-filesystem boost-system boost-date-time boost-timer boost-chrono sqlite3 libarchive --triplet x64-windows-static
+          vcpkg install boost-headers boost-filesystem boost-system boost-date-time boost-timer boost-chrono boost-interprocess sqlite3 libarchive --triplet x64-windows-static
 
       # ---- Install Qt from source and build static ----
 
