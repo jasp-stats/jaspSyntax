@@ -31,7 +31,8 @@ env:
   RELEASE_TAG: ${{ github.event.inputs.release_tag || 'syntaxinterface-libs' }}
   QT_VERSION: '6.10.1'
   QT_SUBMODULES: 'qtbase,qtdeclarative,qtshadertools'
-  #NOTE: if you change QT_SUBMODULES, also update the cache key below in "Cache static Qt build". We cannot resuse this env var for the cache key because it contains commas.
+  #NOTE: if you change QT_SUBMODULES or Qt configure flags, also update the cache key below in "Cache static Qt build".
+  #      We cannot reuse the QT_SUBMODULES env var for the cache key because it contains commas.
 
 jobs:
 
@@ -72,6 +73,15 @@ jobs:
         uses: actions/checkout@v6
 
       # ---- System dependencies ----
+
+      - name: Free disk space (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+        # Yes, we occasionally get "no space left on device" errors on ubuntu-latest, even though it should have ~14 GB free when clean.
+        # The above commands are a common workaround to free up some extra space, we should occasionally re-evaluate the necessity of this.
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -119,7 +129,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
+          key: qt-static-v2-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
 
       - name: Download Qt source
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -138,9 +148,12 @@ jobs:
             -prefix ${{ github.workspace }}/qt-static \
             -submodules ${{ env.QT_SUBMODULES }} \
             -nomake examples -nomake tests -nomake benchmarks \
+            -no-feature-printsupport -no-feature-sql \
+            -no-feature-dbus -no-feature-cups \
             -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
           cmake --install .
+          cd .. && rm -rf qt-src
 
       - name: Build static Qt (Windows)
         if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os == 'Windows'
@@ -151,16 +164,19 @@ jobs:
           call configure.bat -release -static -opensource -confirm-license ^
             -prefix ${{ github.workspace }}\qt-static ^
             -submodules ${{ env.QT_SUBMODULES }} ^
-            -nomake examples -nomake tests -nomake benchmarks
+            -nomake examples -nomake tests -nomake benchmarks ^
+            -no-feature-printsupport -no-feature-sql ^
+            -no-feature-dbus -no-feature-cups
           cmake --build . --parallel
           cmake --install .
+          cd .. && rmdir /s /q qt-src
 
       - name: Save Qt cache
         if: steps.cache-qt.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
+          key: qt-static-v2-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
 
       # ---- Setup R (after Qt build to avoid rtools45 PATH pollution on Windows) ----
 
