@@ -31,6 +31,7 @@ env:
   RELEASE_TAG: ${{ github.event.inputs.release_tag || 'syntaxinterface-libs' }}
   QT_VERSION: '6.10.1'
   QT_SUBMODULES: 'qtbase,qtdeclarative,qtshadertools'
+  #NOTE: if you change QT_SUBMODULES, also update the cache key below in "Cache static Qt build". We cannot resuse this env var for the cache key because it contains commas.
 
 jobs:
 
@@ -136,7 +137,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES }}
+          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
 
       - name: Download Qt source
         if: steps.cache-qt.outputs.cache-hit != 'true'
