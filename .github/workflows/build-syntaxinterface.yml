@@ -279,10 +279,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          # On Windows we also need libR-InterfaceNoRInside.dll
-          cp build/SyntaxInterface/${{ matrix.lib_file }} ${{ matrix.artifact }}
-          if [ -f build/R-Interface/libR-InterfaceNoRInside.dll ]; then
-            cp build/R-Interface/libR-InterfaceNoRInside.dll libR-InterfaceNoRInside-windows-x86_64.dll
+          # Ninja on Windows may place DLLs in build/bin/ or build/SyntaxInterface/ — search for them
+          echo "--- Searching for SyntaxInterface.dll ---"
+          find build -name 'SyntaxInterface.dll' -type f
+          SI_DLL=$(find build -name 'SyntaxInterface.dll' -type f | head -1)
+          if [ -z "$SI_DLL" ]; then
+            echo "ERROR: SyntaxInterface.dll not found anywhere under build/"
+            exit 1
+          fi
+          echo "Found: $SI_DLL"
+          cp "$SI_DLL" ${{ matrix.artifact }}
+
+          echo "--- Searching for libR-InterfaceNoRInside.dll ---"
+          find build -name 'libR-InterfaceNoRInside.dll' -type f
+          RI_DLL=$(find build -name 'libR-InterfaceNoRInside.dll' -type f | head -1)
+          if [ -n "$RI_DLL" ]; then
+            echo "Found: $RI_DLL"
+            cp "$RI_DLL" libR-InterfaceNoRInside-windows-x86_64.dll
           fi
 
       - name: Upload artifact
