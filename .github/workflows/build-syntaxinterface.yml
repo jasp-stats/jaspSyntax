@@ -30,7 +30,7 @@ env:
   JASP_DESKTOP_REF: ${{ github.event.inputs.jasp_desktop_ref || 'development' }}
   RELEASE_TAG: ${{ github.event.inputs.release_tag || 'syntaxinterface-libs' }}
   QT_VERSION: '6.10.1'
-  QT_SUBMODULES: 'qtbase qtdeclarative qtshadertools'
+  QT_SUBMODULES: 'qtbase,qtdeclarative,qtshadertools'
 
 jobs:
 
@@ -138,24 +138,23 @@ jobs:
           path: ${{ github.workspace }}/qt-static
           key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES }}
 
-      - name: Install aqtinstall
-        if: steps.cache-qt.outputs.cache-hit != 'true'
-        run: pip3 install aqtinstall
-
       - name: Download Qt source
         if: steps.cache-qt.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          aqt install-src --outputdir qt-src "${{ env.QT_VERSION }}" desktop
+          git clone --depth 1 --branch v${{ env.QT_VERSION }} https://code.qt.io/qt/qt5.git qt-src
+          cd qt-src
+          perl init-repository --module-subset=${{ env.QT_SUBMODULES }}
 
       - name: Build static Qt (Unix)
         if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os != 'Windows'
         shell: bash
         run: |
-          cd qt-src/${{ env.QT_VERSION }}/Src
+          SUBMODULES_SPACE="${QT_SUBMODULES//,/ }"
+          cd qt-src
           ./configure -release -static -opensource -confirm-license \
             -prefix ${{ github.workspace }}/qt-static \
-            -submodules ${{ env.QT_SUBMODULES }} \
+            -submodules ${SUBMODULES_SPACE} \
             -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
           cmake --install .
@@ -165,10 +164,11 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
-          cd qt-src\${{ env.QT_VERSION }}\Src
+          cd qt-src
+          set "SUBMODULES_SPACE=%QT_SUBMODULES:,= %"
           configure.bat -release -static -opensource -confirm-license ^
             -prefix ${{ github.workspace }}\qt-static ^
-            -submodules ${{ env.QT_SUBMODULES }}
+            -submodules %SUBMODULES_SPACE%
           cmake --build . --parallel
           cmake --install .
 
