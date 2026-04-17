@@ -1,0 +1,276 @@
+# Build libSyntaxInterface for all platforms and upload to a GitHub Release.
+#
+# The configure script in jaspSyntax downloads these binaries during
+# `install.packages()`. R-universe also uses this when building the package.
+#
+# Trigger: manual dispatch, or on a schedule (every 2 weeks on Monday 06:00 UTC).
+
+name: Build SyntaxInterface Libraries
+
+on:
+  workflow_dispatch:
+    inputs:
+      jasp_desktop_ref:
+        description: 'jasp-desktop branch/tag/SHA to build from'
+        required: false
+        default: 'development'
+      release_tag:
+        description: 'Release tag to upload assets to'
+        required: false
+        default: 'syntaxinterface-libs'
+  schedule:
+    - cron: '0 6 1,15 * *'   # 1st and 15th of each month at 06:00 UTC
+
+# Cancel previous runs of this workflow on the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JASP_DESKTOP_REF: ${{ github.event.inputs.jasp_desktop_ref || 'development' }}
+  RELEASE_TAG: ${{ github.event.inputs.release_tag || 'syntaxinterface-libs' }}
+  QT_VERSION: '6.10.1'
+  QT_SUBMODULES: 'qtbase qtdeclarative qtshadertools'
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+            artifact: libSyntaxInterface-linux-x86_64.so
+            lib_file: libSyntaxInterface.so
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            artifact: libSyntaxInterface-linux-arm64.so
+            lib_file: libSyntaxInterface.so
+          - os: macos-15-intel
+            arch: x86_64
+            artifact: libSyntaxInterface-darwin-x86_64.dylib
+            lib_file: libSyntaxInterface.dylib
+          - os: macos-15          # Apple Silicon (M1)
+            arch: arm64
+            artifact: libSyntaxInterface-darwin-arm64.dylib
+            lib_file: libSyntaxInterface.dylib
+          - os: windows-latest
+            arch: x86_64
+            artifact: SyntaxInterface-windows-x86_64.dll
+            lib_file: SyntaxInterface.dll
+        # the runners are based on https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
+        # this may need to be updated over time
+
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }} (${{ matrix.arch }})
+
+    steps:
+      - name: Checkout jaspSyntax (for workflow context)
+        uses: actions/checkout@v6
+
+      # ---- System dependencies ----
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build \
+            autoconf bison flex g++ gfortran \
+            zlib1g-dev libssl-dev libgl1-mesa-dev \
+            libsqlite3-dev libarchive-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libxcb-xkb-dev \
+            libxcb-xinerama0 libxcb-cursor0 \
+            libboost-dev libboost-filesystem-dev libboost-system-dev \
+            libboost-date-time-dev libboost-timer-dev libboost-chrono-dev \
+            librdata-dev libfreexl-dev libminizip-dev libglpk-dev \
+            libjsoncpp-dev libnss3-dev libnspr4-dev \
+            libxcomposite-dev libxdamage-dev libxrandr-dev libxtst-dev \
+            libxi-dev libasound2-dev libxkbfile-dev \
+            libxcb-icccm4-dev libxcb-shape0-dev libxcb-keysyms1-dev \
+            patchelf pkg-config \
+            r-base r-base-dev
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake ninja autoconf automake libtool pkg-config \
+            boost jsoncpp libarchive openssl sqlite
+
+      - name: Install system dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install ninja -y
+
+      # ---- Install readstat (Linux) ----
+
+      - name: Install ReadStat from source (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          wget -q https://github.com/WizardMac/ReadStat/releases/download/v1.1.9/readstat-1.1.9.tar.gz
+          tar -xzf readstat-1.1.9.tar.gz
+          cd readstat-1.1.9
+          ./configure --prefix=/usr/local
+          make -j$(nproc) CFLAGS='-Wno-error=use-after-free'
+          sudo make install
+          sudo ldconfig
+
+      # ---- Setup R ----
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - name: Install Rcpp and RInside
+        run: |
+          Rscript -e 'install.packages(c("Rcpp", "RInside"), repos = "https://cloud.r-project.org")'
+
+      # ---- Install Qt from source and build static ----
+
+      - name: Cache static Qt build
+        id: cache-qt
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/qt-static
+          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES }}
+
+      - name: Install aqtinstall
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: pip3 install aqtinstall
+
+      - name: Download Qt source
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          aqt install-src --outputdir qt-src "${{ env.QT_VERSION }}" desktop
+
+      - name: Build static Qt (Unix)
+        if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd qt-src/${{ env.QT_VERSION }}/Src
+          ./configure -release -static -opensource -confirm-license \
+            -prefix ${{ github.workspace }}/qt-static \
+            -submodules ${{ env.QT_SUBMODULES }} \
+            -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
+          cmake --install .
+
+      - name: Build static Qt (Windows)
+        if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          cd qt-src\${{ env.QT_VERSION }}\Src
+          configure.bat -release -static -opensource -confirm-license ^
+            -prefix ${{ github.workspace }}\qt-static ^
+            -submodules ${{ env.QT_SUBMODULES }}
+          cmake --build . --parallel
+          cmake --install .
+
+      # ---- Clone and build jasp-desktop / SyntaxInterface ----
+
+      - name: Clone jasp-desktop
+        uses: actions/checkout@v6
+        with:
+          repository: jasp-stats/jasp-desktop
+          ref: ${{ env.JASP_DESKTOP_REF }}
+          path: jasp-desktop
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure jasp-desktop (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          R_HOME=$(R RHOME)
+          cmake -G Ninja -S jasp-desktop -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=${{ github.workspace }}/qt-static \
+            -DCUSTOM_R_PATH="${R_HOME}" \
+            -DINSTALL_R_MODULES=OFF \
+            -DBUILD_TESTS=OFF
+
+      - name: Configure jasp-desktop (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          for /f %%i in ('Rscript -e "cat(R.home())"') do set R_HOME=%%i
+          cmake -G Ninja -S jasp-desktop -B build ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_PREFIX_PATH=${{ github.workspace }}\qt-static ^
+            -DINSTALL_R_MODULES=OFF ^
+            -DBUILD_TESTS=OFF
+
+      - name: Build SyntaxInterface
+        shell: bash
+        run: cmake --build build --target SyntaxInterface --parallel
+
+      # ---- Collect and upload artifact ----
+
+      - name: Collect library (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cp build/SyntaxInterface/${{ matrix.lib_file }} ${{ matrix.artifact }}
+
+      - name: Collect library (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # On Windows we also need libR-InterfaceNoRInside.dll
+          cp build/SyntaxInterface/${{ matrix.lib_file }} ${{ matrix.artifact }}
+          if [ -f build/R-Interface/libR-InterfaceNoRInside.dll ]; then
+            cp build/R-Interface/libR-InterfaceNoRInside.dll libR-InterfaceNoRInside-windows-x86_64.dll
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}
+            libR-InterfaceNoRInside-windows-*.dll
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+          path: libs
+
+      - name: Generate checksums
+        working-directory: libs
+        run: sha256sum * > SHA256SUMS
+
+      - name: Show checksums
+        run: cat libs/SHA256SUMS
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "SyntaxInterface pre-built libraries"
+          body: |
+            Pre-built `libSyntaxInterface` binaries for use by `jaspSyntax`.
+
+            Built from [jasp-desktop@${{ env.JASP_DESKTOP_REF }}](https://github.com/jasp-stats/jasp-desktop/tree/${{ env.JASP_DESKTOP_REF }}).
+            Qt version: ${{ env.QT_VERSION }} (static, submodules: ${{ env.QT_SUBMODULES }}).
+
+            These are downloaded automatically by the `configure` script during `install.packages("jaspSyntax")`.
+          files: libs/*
+          draft: false
+          prerelease: false
+          make_latest: false
