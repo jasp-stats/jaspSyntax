@@ -1,3 +1,4 @@
+#!/bin/bash
 # To manually specify a location for JASP_BUILD_DIR or JASP_SOURCE_DIR do
 #
 # options(configure.vars = c(jaspSyntax = "JASP_SOURCE_DIR='<path>'"))
@@ -5,29 +6,81 @@
 
 set -e
 
+# ---------- GitHub Release configuration ----------
+GITHUB_RELEASE_TAG="${JASPSYNTAX_RELEASE_TAG:-syntaxinterface-libs}"
+GITHUB_RELEASE_URL="https://github.com/jasp-stats/jaspSyntax/releases/download/${GITHUB_RELEASE_TAG}"
 
-function loadFile() {
-	DOWNLOAD_SUCCESS=1
-	if curl --version 2>&1 >/dev/null; then
-		echo "Downloading $1/$2 with curl"
-		curl --silent --output "src/$2" "$1/$2"
+
+function downloadFile() {
+	local URL="$1"
+	local OUTPUT="$2"
+	local DOWNLOAD_SUCCESS=1
+
+	if command -v curl >/dev/null 2>&1; then
+		echo "Downloading ${URL}"
+		curl --fail --silent --location --output "${OUTPUT}" "${URL}"
 		DOWNLOAD_SUCCESS=$?
 	fi
 
 	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
-		echo "seeing if wget is available"
-		if wget --version 2>&1 >/dev/null; then
-			wget --quiet -O  "src/$2" "$1/$2"
+		if command -v wget >/dev/null 2>&1; then
+			echo "Trying wget for ${URL}"
+			wget --quiet -O "${OUTPUT}" "${URL}"
 			DOWNLOAD_SUCCESS=$?
 		fi
 	fi
+
 	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
-		printf "Installing jaspSyntax failed because the required file $2 is missing.\n\
+		echo "Failed to download: ${URL}"
+		return 1
+	fi
+	return 0
+}
+
+function loadFile() {
+	if ! downloadFile "$1/$2" "src/$2"; then
+		printf "Installing jaspSyntax failed because the required file %s is missing.\n\
 Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
-Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))"
+Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
 		exit 1
-    fi
-	printf "$2 loaded from $1"
+	fi
+}
+
+function verifyChecksum() {
+	# verifyChecksum <file_path> <asset_name>
+	# Verifies the checksum of <file_path> against SHA256SUMS from the GitHub Release.
+	local FILE_PATH="$1"
+	local ASSET_NAME="$2"
+
+	if command -v sha256sum >/dev/null 2>&1; then
+		CHECKSUM_CMD="sha256sum"
+	elif command -v shasum >/dev/null 2>&1; then
+		CHECKSUM_CMD="shasum -a 256"
+	else
+		echo "Warning: no sha256 tool found, skipping checksum verification"
+		return 0
+	fi
+
+	echo "Verifying checksum for ${ASSET_NAME}..."
+	if downloadFile "${GITHUB_RELEASE_URL}/SHA256SUMS" "src/SHA256SUMS"; then
+		EXPECTED=$(grep "${ASSET_NAME}" src/SHA256SUMS | awk '{print $1}')
+		ACTUAL=$(${CHECKSUM_CMD} "${FILE_PATH}" | awk '{print $1}')
+
+		if [ -z "${EXPECTED}" ]; then
+			echo "Warning: no checksum found for ${ASSET_NAME} in SHA256SUMS"
+		elif [ "${ACTUAL}" != "${EXPECTED}" ]; then
+			echo "Checksum verification FAILED for ${ASSET_NAME}!"
+			echo "  Expected: ${EXPECTED}"
+			echo "  Got:      ${ACTUAL}"
+			rm -f "${FILE_PATH}" src/SHA256SUMS
+			exit 1
+		else
+			echo "Checksum verified OK"
+		fi
+		rm -f src/SHA256SUMS
+	else
+		echo "Warning: could not download SHA256SUMS, skipping checksum verification"
+	fi
 }
 
 if [ "${R_HOME}" ]; then
@@ -38,12 +91,14 @@ fi
 
 PKG_CXXFLAGS=""
 
+# ---------- Download header files if needed ----------
+
 if [[ "${JASP_SOURCE_DIR}" ]]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
 	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\""
 elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
-		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/boutinb/jasp-desktop/refs/heads/useJASPModuleInRSyntax"
+		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
 	fi
 
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
@@ -57,47 +112,46 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	done
 fi
 
+# ---------- Download SyntaxInterface.dll ----------
+
 SYNTAXINTERFACE_DLL="SyntaxInterface.dll"
+SYNTAXINTERFACE_ASSET="SyntaxInterface-windows-x86_64.dll"
+
 if [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
-	cp "${JASP_BUILD_DIR}/$SYNTAXINTERFACE_DLL" src/$SYNTAXINTERFACE_DLL
+	cp "${JASP_BUILD_DIR}/${SYNTAXINTERFACE_DLL}" "src/${SYNTAXINTERFACE_DLL}"
 elif [ ! -f "src/${SYNTAXINTERFACE_DLL}" ]; then
-	if [ "${JASP_FILE_SERVER}" = "" ]; then
-		JASP_FILE_SERVER="https://static.jasp-stats.org/jaspSyntax/1.0/"
-	fi
-
-	loadFile "${JASP_FILE_SERVER}" "${SYNTAXINTERFACE_DLL}"
-	
-	if [[ ! $(sha256sum src/${SYNTAXINTERFACE_DLL}) =~ "c9bcbd1e7a2f498e5934b1aa43919f4bc3cac5941992b259b3f338d6fadf8913" ]]; then
-		echo "Wrong checksum!"
-		rm src/${SYNTAXINTERFACE_DLL}
+	echo "Downloading pre-built ${SYNTAXINTERFACE_ASSET} from GitHub Release (${GITHUB_RELEASE_TAG})..."
+	if ! downloadFile "${GITHUB_RELEASE_URL}/${SYNTAXINTERFACE_ASSET}" "src/${SYNTAXINTERFACE_DLL}"; then
+		echo "ERROR: Could not download ${SYNTAXINTERFACE_ASSET}"
+		echo "  URL: ${GITHUB_RELEASE_URL}/${SYNTAXINTERFACE_ASSET}"
 		exit 1
 	fi
+	verifyChecksum "src/${SYNTAXINTERFACE_DLL}" "${SYNTAXINTERFACE_ASSET}"
 fi
+
+# ---------- Download libR-InterfaceNoRInside.dll ----------
 
 RINTERFACE_DLL="libR-InterfaceNoRInside.dll"
-if [[ "${JASP_BUILD_DIR}" ]]; then
-        cp "${JASP_BUILD_DIR}/R-Interface/${RINTERFACE_DLL}" src/
-elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
-	if [ "${JASP_FILE_SERVER}" = "" ]; then
-		JASP_FILE_SERVER="https://static.jasp-stats.org/jaspSyntax/1.0/"
-	fi
+RINTERFACE_ASSET="libR-InterfaceNoRInside-windows-x86_64.dll"
 
-	loadFile "${JASP_FILE_SERVER}" ${RINTERFACE_DLL}
-	if [[ ! $(sha256sum src/${RINTERFACE_DLL}) =~ "84917cd81836aaa894c6a98f70ab471eb98ff12c70173616a7ecc87f768ee341" ]]; then
-		echo "Wrong checksum!"
-		rm src/${RINTERFACE_DLL}
+if [[ "${JASP_BUILD_DIR}" ]]; then
+	cp "${JASP_BUILD_DIR}/R-Interface/${RINTERFACE_DLL}" src/
+elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
+	echo "Downloading pre-built ${RINTERFACE_ASSET} from GitHub Release (${GITHUB_RELEASE_TAG})..."
+	if ! downloadFile "${GITHUB_RELEASE_URL}/${RINTERFACE_ASSET}" "src/${RINTERFACE_DLL}"; then
+		echo "ERROR: Could not download ${RINTERFACE_ASSET}"
+		echo "  URL: ${GITHUB_RELEASE_URL}/${RINTERFACE_ASSET}"
 		exit 1
 	fi
+	verifyChecksum "src/${RINTERFACE_DLL}" "${RINTERFACE_ASSET}"
 fi
 
-
-#PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/bin/x64/R.dll"
 
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DUNICODE\ -DWIN32\ -DWIN32_LEAN_AND_MEAN\ -DWIN64\ -D_ENABLE_EXTENDED_ALIGNED_STORAGE
 
 PKG_LIBS="-lSyntaxInterface -llibR-InterfaceNoRInside"
 
-sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
+sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" -e "s|@rpathflags@||" src/Makevars.in > src/Makevars
 
 exit 0

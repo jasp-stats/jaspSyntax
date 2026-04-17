@@ -8,5 +8,9 @@ Website: jasp-stats.org
 Maintainer: JASP Team <info@jasp-stats.org>
 Description: Set up the right options for the analysis by loading its QML Form, and set up the R environment so that it can run the analysis as if it was run by JASP
 License: GPL (>= 2)
+Encoding: UTF-8
+URL: https://github.com/jasp-stats/jaspSyntax
+BugReports: https://github.com/jasp-stats/jaspSyntax/issues
+SystemRequirements: libcurl or wget (for downloading the SyntaxInterface library during installation)
 Imports: Rcpp (>= 1.0.5)
 LinkingTo: Rcpp

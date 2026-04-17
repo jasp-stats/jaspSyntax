@@ -1,3 +1,4 @@
+#!/bin/bash
 # To manually specify a location for JASP_BUILD_DIR or JASP_SOURCE_DIR do
 #
 # options(configure.vars = c(jaspSyntax = "JASP_SOURCE_DIR='<path>'"))
@@ -5,29 +6,75 @@
 
 set -e
 
+# ---------- GitHub Release configuration ----------
+# Pre-built binaries are hosted as GitHub Release assets.
+# The build-syntaxinterface.yml workflow produces these.
+GITHUB_RELEASE_TAG="${JASPSYNTAX_RELEASE_TAG:-syntaxinterface-libs}"
+GITHUB_RELEASE_URL="https://github.com/jasp-stats/jaspSyntax/releases/download/${GITHUB_RELEASE_TAG}"
 
-function loadFile() {
-	DOWNLOAD_SUCCESS=1
-	if curl --version 2>&1 >/dev/null; then
-		echo "Downloading $1/$2 with curl"
-		curl --silent --output "src/$2" "$1/$2"
+
+function downloadFile() {
+	# downloadFile <url> <output_path>
+	# Downloads a file using curl or wget. Exits on failure.
+	local URL="$1"
+	local OUTPUT="$2"
+	local DOWNLOAD_SUCCESS=1
+
+	if command -v curl >/dev/null 2>&1; then
+		echo "Downloading ${URL}"
+		curl --fail --silent --location --output "${OUTPUT}" "${URL}"
 		DOWNLOAD_SUCCESS=$?
 	fi
 
 	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
-		echo "seeing if wget is available"
-		if wget --version 2>&1 >/dev/null; then
-			wget --quiet -O  "src/$2" "$1/$2"
+		if command -v wget >/dev/null 2>&1; then
+			echo "Trying wget for ${URL}"
+			wget --quiet -O "${OUTPUT}" "${URL}"
 			DOWNLOAD_SUCCESS=$?
 		fi
 	fi
+
 	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
-		printf "Installing jaspSyntax failed because the required file $2 is missing.\n\
+		echo "Failed to download: ${URL}"
+		return 1
+	fi
+	return 0
+}
+
+function loadFile() {
+	# loadFile <base_url> <filename>
+	# Downloads <base_url>/<filename> into src/<filename>.
+	if ! downloadFile "$1/$2" "src/$2"; then
+		printf "Installing jaspSyntax failed because the required file %s is missing.\n\
 Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
-Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))"
+Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
 		exit 1
 	fi
 }
+
+# ---------- Detect platform and architecture ----------
+UNAME_S="$(uname -s)"
+UNAME_M="$(uname -m)"
+case "${UNAME_S}" in
+	Darwin*)  DLL_EXT="dylib"; DLL_NAME="libSyntaxInterface.dylib" ;;
+	Linux*)   DLL_EXT="so";    DLL_NAME="libSyntaxInterface.so"    ;;
+	*)        echo "Unsupported platform: ${UNAME_S}"; exit 1      ;;
+esac
+
+# Map architecture names
+case "${UNAME_M}" in
+	x86_64|amd64)  ARCH="x86_64"  ;;
+	aarch64|arm64)  ARCH="arm64"   ;;
+	*)              ARCH="${UNAME_M}" ;;
+esac
+
+# Determine the GitHub Release asset name for this platform
+case "${UNAME_S}" in
+	Darwin*)  RELEASE_ASSET="libSyntaxInterface-darwin-${ARCH}.dylib" ;;
+	Linux*)   RELEASE_ASSET="libSyntaxInterface-linux-${ARCH}.so"     ;;
+esac
+
+echo "Detected platform: ${UNAME_S} ${UNAME_M} (library: ${DLL_NAME}, asset: ${RELEASE_ASSET})"
 
 if [ "${R_HOME}" ]; then
 	echo "Found R_HOME: ${R_HOME}"
@@ -39,6 +86,7 @@ PKG_CXXFLAGS=""
 JASP_SOURCE_DIR=""
 JASP_BUILD_DIR=""
 
+# ---------- Download header files if needed ----------
 
 if [[ "${JASP_SOURCE_DIR}" ]]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
@@ -59,32 +107,73 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	done
 fi
 
-
-DLL_NAME="libSyntaxInterface.dylib"
+# ---------- Download pre-built library if needed ----------
 
 if [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
-	cp "${JASP_BUILD_DIR}/SyntaxInterface/$DLL_NAME" src/$DLL_NAME
+	cp "${JASP_BUILD_DIR}/SyntaxInterface/${DLL_NAME}" "src/${DLL_NAME}"
 elif [ ! -f "src/${DLL_NAME}" ]; then
-	if [ "${JASP_FILE_SERVER}" = "" ]; then
-		JASP_FILE_SERVER="https://static.jasp-stats.org/jaspSyntax/0.96.1/"
+
+	echo "Downloading pre-built ${RELEASE_ASSET} from GitHub Release (${GITHUB_RELEASE_TAG})..."
+	if ! downloadFile "${GITHUB_RELEASE_URL}/${RELEASE_ASSET}" "src/${DLL_NAME}"; then
+		echo ""
+		echo "ERROR: Could not download pre-built library for your platform."
+		echo "  URL: ${GITHUB_RELEASE_URL}/${RELEASE_ASSET}"
+		echo ""
+		echo "You can build the library yourself and pass it via:"
+		echo "  options(configure.vars = c(jaspSyntax = \"JASP_BUILD_DIR='/path/to/build'\"))"
+		echo "See https://github.com/jasp-stats/jaspSyntax#readme for instructions."
+		exit 1
 	fi
 
-	loadFile "${JASP_FILE_SERVER}" "${DLL_NAME}"
-	if [[ ! $(shasum -a 256 src/${DLL_NAME}) =~ "a6f88bd3bd1b4c5bdd687409ace043f97099ac2767737de32bc2fa318e9d691b" ]]; then
-		echo "Wrong checksum!"
-		rm src/${DLL_NAME}
-		exit 1
+	# Verify checksum from the SHA256SUMS file in the same release
+	if command -v shasum >/dev/null 2>&1; then
+		CHECKSUM_CMD="shasum -a 256"
+	elif command -v sha256sum >/dev/null 2>&1; then
+		CHECKSUM_CMD="sha256sum"
+	else
+		echo "Warning: no sha256 tool found, skipping checksum verification"
+		CHECKSUM_CMD=""
+	fi
+
+	if [ -n "${CHECKSUM_CMD}" ]; then
+		echo "Verifying checksum..."
+		if downloadFile "${GITHUB_RELEASE_URL}/SHA256SUMS" "src/SHA256SUMS"; then
+			EXPECTED_CHECKSUM=$(grep "${RELEASE_ASSET}" src/SHA256SUMS | awk '{print $1}')
+			ACTUAL_CHECKSUM=$(${CHECKSUM_CMD} "src/${DLL_NAME}" | awk '{print $1}')
+
+			if [ -z "${EXPECTED_CHECKSUM}" ]; then
+				echo "Warning: no checksum found for ${RELEASE_ASSET} in SHA256SUMS, skipping verification"
+			elif [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
+				echo "Checksum verification FAILED for ${DLL_NAME}!"
+				echo "  Expected: ${EXPECTED_CHECKSUM}"
+				echo "  Got:      ${ACTUAL_CHECKSUM}"
+				rm -f "src/${DLL_NAME}"
+				rm -f "src/SHA256SUMS"
+				exit 1
+			else
+				echo "Checksum verified OK"
+			fi
+			rm -f "src/SHA256SUMS"
+		else
+			echo "Warning: could not download SHA256SUMS, skipping checksum verification"
+		fi
 	fi
 fi
 
 
 mkdir -p inst/libs
-cp src/"$DLL_NAME" inst/libs/$DLL_NAME
+cp "src/${DLL_NAME}" "inst/libs/${DLL_NAME}"
 
 PKG_LIBS=-lSyntaxInterface
 
-sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
+# Set platform-specific RPATH so jaspSyntax.so can find libSyntaxInterface at runtime
+case "${UNAME_S}" in
+	Linux*)  PKG_RPATHFLAGS="-Wl,-rpath,'\$\$ORIGIN'" ;;
+	*)       PKG_RPATHFLAGS="" ;;
+esac
+
+sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" -e "s|@rpathflags@|${PKG_RPATHFLAGS}|" src/Makevars.in > src/Makevars
 
 
 exit 0
