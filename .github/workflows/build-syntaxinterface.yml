@@ -114,13 +114,12 @@ jobs:
 
       # ---- Install Qt from source and build static ----
 
-      - name: Cache static Qt build
+      - name: Restore Qt cache
         id: cache-qt
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}/qt-static
           key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
-          save-always: true
 
       - name: Download Qt source
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -155,6 +154,13 @@ jobs:
             -nomake examples -nomake tests -nomake benchmarks
           cmake --build . --parallel
           cmake --install .
+
+      - name: Save Qt cache
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ github.workspace }}/qt-static
+          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
 
       # ---- Setup R (after Qt build to avoid rtools45 PATH pollution on Windows) ----
 
