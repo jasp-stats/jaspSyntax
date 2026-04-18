@@ -41,7 +41,7 @@ function loadFile() {
 	if ! downloadFile "$1/$2" "src/$2"; then
 		printf "Installing jaspSyntax failed because the required file %s is missing.\n\
 Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
-Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
+Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.vars: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
 		exit 1
 	fi
 }
@@ -187,7 +187,7 @@ done
 
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DUNICODE\ -DWIN32\ -DWIN32_LEAN_AND_MEAN\ -DWIN64\ -D_ENABLE_EXTENDED_ALIGNED_STORAGE
 
-PKG_LIBS="-lSyntaxInterface -llibR-InterfaceNoRInside"
+PKG_LIBS="-l:${SYNTAXINTERFACE_DLL} -l:${RINTERFACE_DLL}"
 
 sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
 

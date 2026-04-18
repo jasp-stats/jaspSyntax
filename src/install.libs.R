@@ -1,5 +1,9 @@
 package_library <- paste0(R_PACKAGE_NAME, .Platform$dynlib.ext)
 
+if (!file.exists(package_library)) {
+	stop(sprintf("Required compiled library '%s' was not found.", package_library))
+}
+
 files <- unique(c(package_library, Sys.glob(c("*.dll", "*.so", "*.dylib"))))
 files <- files[file.exists(files)]
 
