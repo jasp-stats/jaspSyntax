@@ -117,9 +117,16 @@ fi
 
 # ---------- Download header files if needed ----------
 
+JSON_FILES="allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h"
+
 if [[ "${JASP_SOURCE_DIR}" ]]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
 	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\" -I\"${JASP_SOURCE_DIR}/Common\""
+	mkdir -p 'src/json'
+
+	for i in ${JSON_FILES}; do
+		cp "${JASP_SOURCE_DIR}/Common/json/${i}" "src/json/${i}"
+	done
 elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
 		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
@@ -128,8 +135,6 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
 
 	mkdir -p 'src/json'
-
-	JSON_FILES="allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h"
 
 	for i in ${JSON_FILES}; do
 		loadFile "${GITHUB_JASP_DESKTOP_FILES}/Common" "json/${i}"
@@ -180,9 +185,11 @@ RUNTIME_DLLS="libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll"
 
 for RUNTIME_DLL in ${RUNTIME_DLLS}; do
 	if [ ! -f "src/${RUNTIME_DLL}" ]; then
-		copyOptionalFile "${RUNTIME_DLL}" "${JASPSYNTAX_RUNTIME_DIR}" "${JASPSYNTAX_LIB_DIR}" "${JASP_BUILD_DIR}"
+		if ! copyOptionalFile "${RUNTIME_DLL}" "${JASPSYNTAX_RUNTIME_DIR}" "${JASPSYNTAX_LIB_DIR}" "${JASP_BUILD_DIR}"; then
+			echo "Warning: could not locate optional runtime DLL ${RUNTIME_DLL}"
+		fi
 	fi
-	done
+done
 
 
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DUNICODE\ -DWIN32\ -DWIN32_LEAN_AND_MEAN\ -DWIN64\ -D_ENABLE_EXTENDED_ALIGNED_STORAGE
