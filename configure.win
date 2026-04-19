@@ -41,7 +41,7 @@ function loadFile() {
 	if ! downloadFile "$1/$2" "src/$2"; then
 		printf "Installing jaspSyntax failed because the required file %s is missing.\n\
 Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
-Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
+Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.vars: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
 		exit 1
 	fi
 }
@@ -83,6 +83,21 @@ function verifyChecksum() {
 	fi
 }
 
+function copyOptionalFile() {
+	local FILE_NAME="$1"
+	shift
+
+	for SOURCE_DIR in "$@"; do
+		if [ -n "${SOURCE_DIR}" ] && [ -f "${SOURCE_DIR}/${FILE_NAME}" ]; then
+			echo "Copying ${FILE_NAME} from ${SOURCE_DIR}"
+			cp "${SOURCE_DIR}/${FILE_NAME}" "src/${FILE_NAME}"
+			return 0
+		fi
+	done
+
+	return 1
+}
+
 if [ "${R_HOME}" ]; then
 	echo "Found R_HOME: ${R_HOME}"
 else
@@ -94,12 +109,17 @@ JASP_SOURCE_DIR="${JASP_SOURCE_DIR:-}"
 JASP_BUILD_DIR="${JASP_BUILD_DIR:-}"
 # JASPSYNTAX_LIB_DIR: directory containing pre-built SyntaxInterface.dll (and optionally libR-InterfaceNoRInside.dll)
 JASPSYNTAX_LIB_DIR="${JASPSYNTAX_LIB_DIR:-}"
+JASPSYNTAX_RUNTIME_DIR="${JASPSYNTAX_RUNTIME_DIR:-}"
+
+if [ -z "${JASPSYNTAX_RUNTIME_DIR}" ] && [ -d "/c/Program Files/JASP" ]; then
+	JASPSYNTAX_RUNTIME_DIR="/c/Program Files/JASP"
+fi
 
 # ---------- Download header files if needed ----------
 
 if [[ "${JASP_SOURCE_DIR}" ]]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
-	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\""
+	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\" -I\"${JASP_SOURCE_DIR}/Common\""
 elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
 		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
@@ -156,10 +176,18 @@ elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
 	verifyChecksum "src/${RINTERFACE_DLL}" "${RINTERFACE_ASSET}"
 fi
 
+RUNTIME_DLLS="libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll"
+
+for RUNTIME_DLL in ${RUNTIME_DLLS}; do
+	if [ ! -f "src/${RUNTIME_DLL}" ]; then
+		copyOptionalFile "${RUNTIME_DLL}" "${JASPSYNTAX_RUNTIME_DIR}" "${JASPSYNTAX_LIB_DIR}" "${JASP_BUILD_DIR}"
+	fi
+	done
+
 
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DUNICODE\ -DWIN32\ -DWIN32_LEAN_AND_MEAN\ -DWIN64\ -D_ENABLE_EXTENDED_ALIGNED_STORAGE
 
-PKG_LIBS="-lSyntaxInterface -llibR-InterfaceNoRInside"
+PKG_LIBS="-l:${SYNTAXINTERFACE_DLL} -l:${RINTERFACE_DLL}"
 
 sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" -e "s|@rpathflags@||" src/Makevars.in > src/Makevars
 
