@@ -4,7 +4,8 @@ if (!file.exists(package_library)) {
 	stop(sprintf("Required compiled library '%s' was not found.", package_library))
 }
 
-files <- unique(c(package_library, Sys.glob(c("*.dll", "*.so", "*.dylib"))))
+shared_libraries <- Sys.glob(c("*.dll", "*.so", "*.dylib"))
+files <- unique(c(package_library, shared_libraries))
 files <- files[file.exists(files)]
 
 dest <- file.path(R_PACKAGE_DIR, paste0("libs", R_ARCH))
