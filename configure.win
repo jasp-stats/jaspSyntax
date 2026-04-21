@@ -98,6 +98,111 @@ function copyOptionalFile() {
 	return 1
 }
 
+function addRuntimeSearchDir() {
+	local DIR_PATH="$1"
+	local KNOWN_DIR
+
+	if [ -z "${DIR_PATH}" ] || [ ! -d "${DIR_PATH}" ]; then
+		return 0
+	fi
+
+	for KNOWN_DIR in "${RUNTIME_SEARCH_DIRS[@]}"; do
+		if [ "${KNOWN_DIR}" = "${DIR_PATH}" ]; then
+			return 0
+		fi
+	done
+
+	RUNTIME_SEARCH_DIRS+=("${DIR_PATH}")
+	return 0
+}
+
+function discoverLocalRtoolsRuntimeDirs() {
+	local GCC_PATH=""
+	local GCC_DIR=""
+	local RTOOLS_ROOT=""
+	local ENV_NAME
+	local ENV_VALUE
+	local PATH_DIR
+	local OLD_IFS
+
+	if command -v g++ >/dev/null 2>&1; then
+		GCC_PATH=$(command -v g++)
+		GCC_DIR=$(dirname "${GCC_PATH}")
+		addRuntimeSearchDir "${GCC_DIR}"
+
+		case "${GCC_DIR}" in
+			*/x86_64-w64-mingw32.static.posix/bin)
+				RTOOLS_ROOT="${GCC_DIR%/x86_64-w64-mingw32.static.posix/bin}"
+				addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+				;;
+			*/ucrt64/bin)
+				addRuntimeSearchDir "${GCC_DIR}"
+				;;
+		esac
+	fi
+
+	for ENV_NAME in RTOOLS45_HOME RTOOLS44_HOME RTOOLS43_HOME RTOOLS42_HOME; do
+		ENV_VALUE=$(printenv "${ENV_NAME}" 2>/dev/null || true)
+		addRuntimeSearchDir "${ENV_VALUE}"
+		addRuntimeSearchDir "${ENV_VALUE}/bin"
+		addRuntimeSearchDir "${ENV_VALUE}/ucrt64/bin"
+		case "${ENV_VALUE}" in
+			*/ucrt64)
+				addRuntimeSearchDir "${ENV_VALUE}/bin"
+				;;
+		esac
+	done
+
+	for RTOOLS_ROOT in /c/rtools45 /c/rtools44 /c/rtools43 /c/rtools42; do
+		addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+	done
+
+	OLD_IFS="${IFS}"
+	IFS=':'
+	for PATH_DIR in ${PATH}; do
+		case "${PATH_DIR}" in
+			*rtools*/ucrt64/bin)
+				addRuntimeSearchDir "${PATH_DIR}"
+				;;
+			*rtools*/x86_64-w64-mingw32.static.posix/bin)
+				RTOOLS_ROOT="${PATH_DIR%/x86_64-w64-mingw32.static.posix/bin}"
+				addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+				;;
+		esac
+	done
+	IFS="${OLD_IFS}"
+}
+
+function requireRuntimeFile() {
+	local FILE_NAME="$1"
+	shift
+	local SEARCH_DIR
+
+	if [ -f "src/${FILE_NAME}" ]; then
+		return 0
+	fi
+
+	if copyOptionalFile "${FILE_NAME}" "$@"; then
+		return 0
+	fi
+
+	printf "Installing jaspSyntax failed because the required runtime DLL %s could not be located.\n\
+The downloaded Windows binaries require the matching local Rtools UCRT runtime.\n\
+Install the Rtools UCRT toolchain for your R version or set configure.vars, for example:\n\
+options(configure.vars = c(jaspSyntax = \"JASPSYNTAX_RUNTIME_DIR='<path-to-rtools>/ucrt64/bin'\"))\n" "${FILE_NAME}"
+
+	if [ "$#" -gt 0 ]; then
+		echo "Searched runtime directories:"
+		for SEARCH_DIR in "$@"; do
+			if [ -n "${SEARCH_DIR}" ]; then
+				echo "  ${SEARCH_DIR}"
+			fi
+		done
+	fi
+
+	exit 1
+}
+
 if [ "${R_HOME}" ]; then
 	echo "Found R_HOME: ${R_HOME}"
 else
@@ -110,10 +215,7 @@ JASP_BUILD_DIR="${JASP_BUILD_DIR:-}"
 # JASPSYNTAX_LIB_DIR: directory containing pre-built SyntaxInterface.dll (and optionally libR-InterfaceNoRInside.dll)
 JASPSYNTAX_LIB_DIR="${JASPSYNTAX_LIB_DIR:-}"
 JASPSYNTAX_RUNTIME_DIR="${JASPSYNTAX_RUNTIME_DIR:-}"
-
-if [ -z "${JASPSYNTAX_RUNTIME_DIR}" ] && [ -d "/c/Program Files/JASP" ]; then
-	JASPSYNTAX_RUNTIME_DIR="/c/Program Files/JASP"
-fi
+RUNTIME_SEARCH_DIRS=()
 
 # ---------- Download header files if needed ----------
 
@@ -183,12 +285,14 @@ fi
 
 RUNTIME_DLLS="libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll"
 
+addRuntimeSearchDir "${JASPSYNTAX_RUNTIME_DIR}"
+addRuntimeSearchDir "${JASPSYNTAX_LIB_DIR}"
+addRuntimeSearchDir "${JASP_BUILD_DIR}"
+addRuntimeSearchDir "${JASP_BUILD_DIR}/R-Interface"
+discoverLocalRtoolsRuntimeDirs
+
 for RUNTIME_DLL in ${RUNTIME_DLLS}; do
-	if [ ! -f "src/${RUNTIME_DLL}" ]; then
-		if ! copyOptionalFile "${RUNTIME_DLL}" "${JASPSYNTAX_RUNTIME_DIR}" "${JASPSYNTAX_LIB_DIR}" "${JASP_BUILD_DIR}"; then
-			echo "Warning: could not locate optional runtime DLL ${RUNTIME_DLL}"
-		fi
-	fi
+	requireRuntimeFile "${RUNTIME_DLL}" "${RUNTIME_SEARCH_DIRS[@]}"
 done
 
 
