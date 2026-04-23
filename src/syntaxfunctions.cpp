@@ -27,6 +27,36 @@ static bool		global_param_dbInMemory				= false;
 static bool		global_param_orderLabelsByValue		= true;
 static int		global_param_threshold				= 10;
 
+template <typename Func>
+auto callBridgeOrStop(const char * functionName, Func func) -> decltype(func())
+{
+	try
+	{
+		return func();
+	}
+	catch (const std::exception & exception)
+	{
+		Rcpp::stop("%s failed: %s", functionName, exception.what());
+	}
+	catch (...)
+	{
+		Rcpp::stop("%s failed with an unknown exception.", functionName);
+	}
+}
+
+Json::Value parseBridgeJsonOrStop(const char * rawJson, const char * functionName)
+{
+	if (rawJson == nullptr)
+		Rcpp::stop("%s returned a null pointer.", functionName);
+
+	Json::Value parsedJson;
+	Json::Reader reader;
+	if (!reader.parse(rawJson, parsedJson))
+		Rcpp::stop("%s returned invalid JSON.", functionName);
+
+	return parsedJson;
+}
+
 // [[Rcpp::export]]
 void cleanUp()
 {
@@ -92,10 +122,12 @@ Rcpp::List parseDescription(String modulePath)
 {
 	std::string modulePathStr = modulePath.get_cstring();
 
-	std::string rawDescription = syntaxBridgeParseDescription(modulePathStr.c_str());
-
-	Json::Value parsedDescription;
-	Json::Reader().parse(rawDescription, parsedDescription);
+	Json::Value parsedDescription = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeParseDescription", [&]() {
+			return syntaxBridgeParseDescription(modulePathStr.c_str());
+		}),
+		"syntaxBridgeParseDescription"
+	);
 
 	Rcpp::List result;
 
@@ -135,7 +167,10 @@ void loadDataSetFromJaspFile(String jaspFilePath)
 {
 	std::string jaspFilePathStr = jaspFilePath.get_cstring();
 
-	syntaxBridgeLoadDataSetFromJaspFile(jaspFilePathStr.c_str(), global_param_dbInMemory);
+	callBridgeOrStop("syntaxBridgeLoadDataSetFromJaspFile", [&]() {
+		syntaxBridgeLoadDataSetFromJaspFile(jaspFilePathStr.c_str(), global_param_dbInMemory);
+		return 0;
+	});
 }
 
 Rcpp::List transformJsonObjectToRcppList(const Json::Value & json);
@@ -194,10 +229,12 @@ Rcpp::List analysisOptionsFromJaspFile(String jaspFilePath, int analysisNr)
 {
 	std::string jaspFilePathStr = jaspFilePath.get_cstring();
 
-	std::string rawOptions = syntaxBridgeAnalysisOptionsFromJaspFile(jaspFilePathStr.c_str(), analysisNr);
-
-	Json::Value parsedOptions;
-	Json::Reader().parse(rawOptions, parsedOptions);
+	Json::Value parsedOptions = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeAnalysisOptionsFromJaspFile", [&]() {
+			return syntaxBridgeAnalysisOptionsFromJaspFile(jaspFilePathStr.c_str(), analysisNr);
+		}),
+		"syntaxBridgeAnalysisOptionsFromJaspFile"
+	);
 
 	return transformJsonObjectToRcppList(parsedOptions);
 }
@@ -214,9 +251,12 @@ String generateAnalysisWrapper(String modulePath, String analysisName)
 // [[Rcpp::export]]
 Rcpp::List getVariableNames()
 {
-	std::string rawNames = syntaxBridgeGetVariableNames();
-	Json::Value parsedNames;
-	Json::Reader().parse(rawNames, parsedNames);
+	Json::Value parsedNames = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeGetVariableNames", [&]() {
+			return syntaxBridgeGetVariableNames();
+		}),
+		"syntaxBridgeGetVariableNames"
+	);
 
 	Rcpp::List result;
 	for (const Json::Value & parsedName : parsedNames)
