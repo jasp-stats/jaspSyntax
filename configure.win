@@ -41,7 +41,7 @@ function loadFile() {
 	if ! downloadFile "$1/$2" "src/$2"; then
 		printf "Installing jaspSyntax failed because the required file %s is missing.\n\
 Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
-Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
+Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.vars: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
 		exit 1
 	fi
 }
@@ -83,6 +83,126 @@ function verifyChecksum() {
 	fi
 }
 
+function copyOptionalFile() {
+	local FILE_NAME="$1"
+	shift
+
+	for SOURCE_DIR in "$@"; do
+		if [ -n "${SOURCE_DIR}" ] && [ -f "${SOURCE_DIR}/${FILE_NAME}" ]; then
+			echo "Copying ${FILE_NAME} from ${SOURCE_DIR}"
+			cp "${SOURCE_DIR}/${FILE_NAME}" "src/${FILE_NAME}"
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+function addRuntimeSearchDir() {
+	local DIR_PATH="$1"
+	local KNOWN_DIR
+
+	if [ -z "${DIR_PATH}" ] || [ ! -d "${DIR_PATH}" ]; then
+		return 0
+	fi
+
+	for KNOWN_DIR in "${RUNTIME_SEARCH_DIRS[@]}"; do
+		if [ "${KNOWN_DIR}" = "${DIR_PATH}" ]; then
+			return 0
+		fi
+	done
+
+	RUNTIME_SEARCH_DIRS+=("${DIR_PATH}")
+	return 0
+}
+
+function discoverLocalRtoolsRuntimeDirs() {
+	local GCC_PATH=""
+	local GCC_DIR=""
+	local RTOOLS_ROOT=""
+	local ENV_NAME
+	local ENV_VALUE
+	local PATH_DIR
+	local OLD_IFS
+
+	if command -v g++ >/dev/null 2>&1; then
+		GCC_PATH=$(command -v g++)
+		GCC_DIR=$(dirname "${GCC_PATH}")
+		addRuntimeSearchDir "${GCC_DIR}"
+
+		case "${GCC_DIR}" in
+			*/x86_64-w64-mingw32.static.posix/bin)
+				RTOOLS_ROOT="${GCC_DIR%/x86_64-w64-mingw32.static.posix/bin}"
+				addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+				;;
+			*/ucrt64/bin)
+				addRuntimeSearchDir "${GCC_DIR}"
+				;;
+		esac
+	fi
+
+	for ENV_NAME in RTOOLS45_HOME RTOOLS44_HOME RTOOLS43_HOME RTOOLS42_HOME; do
+		ENV_VALUE=$(printenv "${ENV_NAME}" 2>/dev/null || true)
+		addRuntimeSearchDir "${ENV_VALUE}"
+		addRuntimeSearchDir "${ENV_VALUE}/bin"
+		addRuntimeSearchDir "${ENV_VALUE}/ucrt64/bin"
+		case "${ENV_VALUE}" in
+			*/ucrt64)
+				addRuntimeSearchDir "${ENV_VALUE}/bin"
+				;;
+		esac
+	done
+
+	for RTOOLS_ROOT in /c/rtools45 /c/rtools44 /c/rtools43 /c/rtools42; do
+		addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+	done
+
+	OLD_IFS="${IFS}"
+	IFS=':'
+	for PATH_DIR in ${PATH}; do
+		case "${PATH_DIR}" in
+			*rtools*/ucrt64/bin)
+				addRuntimeSearchDir "${PATH_DIR}"
+				;;
+			*rtools*/x86_64-w64-mingw32.static.posix/bin)
+				RTOOLS_ROOT="${PATH_DIR%/x86_64-w64-mingw32.static.posix/bin}"
+				addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+				;;
+		esac
+	done
+	IFS="${OLD_IFS}"
+}
+
+function requireRuntimeFile() {
+	local FILE_NAME="$1"
+	shift
+	local SEARCH_DIR
+
+	if [ -f "src/${FILE_NAME}" ]; then
+		return 0
+	fi
+
+	if copyOptionalFile "${FILE_NAME}" "$@"; then
+		return 0
+	fi
+
+	printf "Installing jaspSyntax failed because the required runtime DLL %s could not be located.\n\
+The downloaded Windows binaries require the matching local Rtools UCRT runtime.\n\
+Install the Rtools UCRT toolchain for your R version or set configure.vars, for example:\n\
+options(configure.vars = c(jaspSyntax = \"JASPSYNTAX_RUNTIME_DIR='<path-to-rtools>/ucrt64/bin'\"))\n" "${FILE_NAME}"
+
+	if [ "$#" -gt 0 ]; then
+		echo "Searched runtime directories:"
+		for SEARCH_DIR in "$@"; do
+			if [ -n "${SEARCH_DIR}" ]; then
+				echo "  ${SEARCH_DIR}"
+			fi
+		done
+	fi
+
+	exit 1
+}
+
 if [ "${R_HOME}" ]; then
 	echo "Found R_HOME: ${R_HOME}"
 else
@@ -94,12 +214,21 @@ JASP_SOURCE_DIR="${JASP_SOURCE_DIR:-}"
 JASP_BUILD_DIR="${JASP_BUILD_DIR:-}"
 # JASPSYNTAX_LIB_DIR: directory containing pre-built SyntaxInterface.dll (and optionally libR-InterfaceNoRInside.dll)
 JASPSYNTAX_LIB_DIR="${JASPSYNTAX_LIB_DIR:-}"
+JASPSYNTAX_RUNTIME_DIR="${JASPSYNTAX_RUNTIME_DIR:-}"
+RUNTIME_SEARCH_DIRS=()
 
 # ---------- Download header files if needed ----------
 
+JSON_FILES="allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h"
+
 if [[ "${JASP_SOURCE_DIR}" ]]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
-	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\""
+	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\" -I\"${JASP_SOURCE_DIR}/Common\""
+	mkdir -p 'src/json'
+
+	for i in ${JSON_FILES}; do
+		cp "${JASP_SOURCE_DIR}/Common/json/${i}" "src/json/${i}"
+	done
 elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
 		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
@@ -108,8 +237,6 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
 
 	mkdir -p 'src/json'
-
-	JSON_FILES="allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h"
 
 	for i in ${JSON_FILES}; do
 		loadFile "${GITHUB_JASP_DESKTOP_FILES}/Common" "json/${i}"
@@ -156,10 +283,22 @@ elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
 	verifyChecksum "src/${RINTERFACE_DLL}" "${RINTERFACE_ASSET}"
 fi
 
+RUNTIME_DLLS="libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll"
+
+addRuntimeSearchDir "${JASPSYNTAX_RUNTIME_DIR}"
+addRuntimeSearchDir "${JASPSYNTAX_LIB_DIR}"
+addRuntimeSearchDir "${JASP_BUILD_DIR}"
+addRuntimeSearchDir "${JASP_BUILD_DIR}/R-Interface"
+discoverLocalRtoolsRuntimeDirs
+
+for RUNTIME_DLL in ${RUNTIME_DLLS}; do
+	requireRuntimeFile "${RUNTIME_DLL}" "${RUNTIME_SEARCH_DIRS[@]}"
+done
+
 
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DUNICODE\ -DWIN32\ -DWIN32_LEAN_AND_MEAN\ -DWIN64\ -D_ENABLE_EXTENDED_ALIGNED_STORAGE
 
-PKG_LIBS="-lSyntaxInterface -llibR-InterfaceNoRInside"
+PKG_LIBS="-l:${SYNTAXINTERFACE_DLL} -l:${RINTERFACE_DLL}"
 
 sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" -e "s|@rpathflags@||" src/Makevars.in > src/Makevars
 
