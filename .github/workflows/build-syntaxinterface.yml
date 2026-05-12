@@ -147,7 +147,7 @@ jobs:
         if: steps.cache-qt.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          aqt install-src --outputdir qt-src "${{ env.QT_VERSION }}" desktop
+          aqt install-src -O qt-src all_os "${{ env.QT_VERSION }}" desktop
 
       - name: Build static Qt (Unix)
         if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os != 'Windows'
