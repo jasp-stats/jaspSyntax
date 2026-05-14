@@ -600,6 +600,7 @@ resolveAnalysisQml <- function(modulePath, analysisName) {
 #' @param output Return parsed R `list` output or raw `json`.
 #' @param includeMeta Whether to retain the `.meta` option in list output.
 #' @param includeTypeOptions Whether to retain `*.types` options in list output.
+#' @param isolated Whether to run native QML parsing in a separate R process.
 #'
 #' @return A named list of parsed options, or a JSON string when
 #'   `output = "json"`.
@@ -610,7 +611,8 @@ parseQmlOptions <- function(qmlFile, options = NULL, moduleName = "jaspModule",
                             preloadData = TRUE, fresh = TRUE,
                             output = c("list", "json"),
                             includeMeta = TRUE,
-                            includeTypeOptions = TRUE) {
+                            includeTypeOptions = TRUE,
+                            isolated = TRUE) {
   output <- match.arg(output)
   qmlFile <- .validateQmlFile(qmlFile)
 
@@ -628,6 +630,28 @@ parseQmlOptions <- function(qmlFile, options = NULL, moduleName = "jaspModule",
 
   if (!is.logical(fresh) || length(fresh) != 1L || is.na(fresh)) {
     stop("`fresh` must be a single TRUE/FALSE value", call. = FALSE)
+  }
+
+  isolated <- .validateFlag(isolated, "isolated")
+  if (isolated) {
+    return(.runBridgeSubprocess(
+      task = "parse_qml_options",
+      target = "parseQmlOptions",
+      input = list(
+        qmlFile = qmlFile,
+        options = options,
+        moduleName = moduleName,
+        analysisName = analysisName,
+        version = version,
+        preloadData = preloadData,
+        fresh = fresh,
+        output = output,
+        includeMeta = includeMeta,
+        includeTypeOptions = includeTypeOptions,
+        isolated = FALSE
+      ),
+      failureLabel = "parseQmlOptions"
+    ))
   }
 
   if (fresh) {
@@ -676,6 +700,7 @@ parseQmlOptions <- function(qmlFile, options = NULL, moduleName = "jaspModule",
 #' @param fresh Whether to clear cached QML/native state before parsing.
 #' @param includeMeta Whether to retain the `.meta` option in list output.
 #' @param includeTypeOptions Whether to retain `*.types` options in list output.
+#' @param isolated Whether to run native QML parsing in a separate R process.
 #'
 #' @return A named list of parsed options.
 #'
@@ -684,7 +709,8 @@ readAnalysisOptionsFromQml <- function(modulePath, analysisName, options = NULL,
                                        version = NULL, preloadData = NULL,
                                        fresh = TRUE,
                                        includeMeta = TRUE,
-                                       includeTypeOptions = TRUE) {
+                                       includeTypeOptions = TRUE,
+                                       isolated = TRUE) {
   resolved <- resolveAnalysisQml(modulePath, analysisName)
   description <- resolved$description
   analysis <- resolved$analysis
@@ -710,7 +736,8 @@ readAnalysisOptionsFromQml <- function(modulePath, analysisName, options = NULL,
     preloadData = preloadData,
     fresh = fresh,
     includeMeta = includeMeta,
-    includeTypeOptions = includeTypeOptions
+    includeTypeOptions = includeTypeOptions,
+    isolated = isolated
   )
 
   .attachOptionAttributes(parsedOptions, description, analysis, resolved$qmlFile)
@@ -722,7 +749,8 @@ analysisOptionsFromQml <- function(modulePath, analysisName, options = NULL,
                                    version = NULL, preloadData = NULL,
                                    fresh = TRUE,
                                    includeMeta = TRUE,
-                                   includeTypeOptions = TRUE) {
+                                   includeTypeOptions = TRUE,
+                                   isolated = TRUE) {
   readAnalysisOptionsFromQml(
     modulePath = modulePath,
     analysisName = analysisName,
@@ -731,7 +759,8 @@ analysisOptionsFromQml <- function(modulePath, analysisName, options = NULL,
     preloadData = preloadData,
     fresh = fresh,
     includeMeta = includeMeta,
-    includeTypeOptions = includeTypeOptions
+    includeTypeOptions = includeTypeOptions,
+    isolated = isolated
   )
 }
 
@@ -747,14 +776,16 @@ analysisOptionsFromQml <- function(modulePath, analysisName, options = NULL,
 #' @export
 readDefaultAnalysisOptions <- function(modulePath, analysisName, fresh = TRUE,
                                        includeMeta = TRUE,
-                                       includeTypeOptions = TRUE) {
+                                       includeTypeOptions = TRUE,
+                                       isolated = TRUE) {
   readAnalysisOptionsFromQml(
     modulePath = modulePath,
     analysisName = analysisName,
     options = NULL,
     fresh = fresh,
     includeMeta = includeMeta,
-    includeTypeOptions = includeTypeOptions
+    includeTypeOptions = includeTypeOptions,
+    isolated = isolated
   )
 }
 
@@ -931,7 +962,8 @@ readDefaultAnalysisOptions <- function(modulePath, analysisName, fresh = TRUE,
     version = version,
     fresh = TRUE,
     includeMeta = includeMeta,
-    includeTypeOptions = includeTypeOptions
+    includeTypeOptions = includeTypeOptions,
+    isolated = FALSE
   )
 
   record$options <- runtimeOptions

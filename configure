@@ -88,6 +88,13 @@ JASP_BUILD_DIR="${JASP_BUILD_DIR:-}"
 # JASPSYNTAX_LIB_PATH: direct path to a pre-built libSyntaxInterface (.so/.dylib)
 # Overrides both JASP_BUILD_DIR and the GitHub Release download.
 JASPSYNTAX_LIB_PATH="${JASPSYNTAX_LIB_PATH:-}"
+
+if [ -z "${JASP_SOURCE_DIR}" ] && [ -n "${JASP_BUILD_DIR}" ]; then
+	JASP_BUILD_PARENT="$(cd "${JASP_BUILD_DIR}/.." 2>/dev/null && pwd)"
+	if [ -f "${JASP_BUILD_PARENT}/SyntaxInterface/syntaxbridge_interface.h" ]; then
+		JASP_SOURCE_DIR="${JASP_BUILD_PARENT}"
+	fi
+fi
 SYNTAXINTERFACE_HEADER_PATH="src/syntaxbridge_interface.h"
 SYNTAXINTERFACE_HEADER_ORIGIN=""
 SYNTAXINTERFACE_BINARY_PATH="src/${DLL_NAME}"
@@ -148,7 +155,7 @@ if [[ "${JASP_SOURCE_DIR}" ]]; then
 	for i in ${JSON_FILES}; do
 		cp "${JASP_SOURCE_DIR}/Common/json/${i}" "src/json/${i}"
 	done
-elif [ ! -f "src/syntaxbridge_interface.h" ]; then
+else
 	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
 		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
 	fi
@@ -173,7 +180,7 @@ elif [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 	SYNTAXINTERFACE_BINARY_ORIGIN="${JASP_BUILD_DIR}/SyntaxInterface/${DLL_NAME}"
 	cp "${SYNTAXINTERFACE_BINARY_ORIGIN}" "src/${DLL_NAME}"
-elif [ ! -f "src/${DLL_NAME}" ]; then
+else
 
 	echo "Downloading pre-built ${RELEASE_ASSET} from GitHub Release (${GITHUB_RELEASE_TAG})..."
 	if ! downloadFile "${GITHUB_RELEASE_URL}/${RELEASE_ASSET}" "src/${DLL_NAME}"; then

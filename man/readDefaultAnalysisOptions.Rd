@@ -7,7 +7,8 @@ readDefaultAnalysisOptions(
   analysisName,
   fresh = TRUE,
   includeMeta = TRUE,
-  includeTypeOptions = TRUE
+  includeTypeOptions = TRUE,
+  isolated = TRUE
 )
 }
 \arguments{
@@ -20,6 +21,8 @@ readDefaultAnalysisOptions(
 \item{includeMeta}{Whether to retain the \code{.meta} option in list output.}
 
 \item{includeTypeOptions}{Whether to retain \code{*.types} options in list output.}
+
+\item{isolated}{Whether to run native QML parsing in a separate R process.}
 }
 \value{
 A named list of default options.

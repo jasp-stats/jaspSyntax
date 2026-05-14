@@ -543,6 +543,14 @@ JASP_BUILD_DIR="${JASP_BUILD_DIR:-}"
 JASPSYNTAX_LIB_DIR="${JASPSYNTAX_LIB_DIR:-}"
 JASPSYNTAX_RUNTIME_DIR="${JASPSYNTAX_RUNTIME_DIR:-}"
 JASPSYNTAX_QT_DIR="${JASPSYNTAX_QT_DIR:-}"
+
+if [ -z "${JASP_SOURCE_DIR}" ] && [ -n "${JASP_BUILD_DIR}" ]; then
+	JASP_BUILD_PARENT="$(cd "${JASP_BUILD_DIR}/.." 2>/dev/null && pwd)"
+	if [ -f "${JASP_BUILD_PARENT}/SyntaxInterface/syntaxbridge_interface.h" ]; then
+		JASP_SOURCE_DIR="${JASP_BUILD_PARENT}"
+	fi
+fi
+
 RUNTIME_SEARCH_DIRS=()
 PROCESSED_RUNTIME_BINARIES=()
 MISSING_TRANSITIVE_RUNTIME_DLLS=()
@@ -609,7 +617,7 @@ if [[ "${JASP_SOURCE_DIR}" ]]; then
 	for i in ${JSON_FILES}; do
 		cp "${JASP_SOURCE_DIR}/Common/json/${i}" "src/json/${i}"
 	done
-elif [ ! -f "src/syntaxbridge_interface.h" ]; then
+else
 	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
 		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
 	fi
@@ -653,7 +661,7 @@ elif [[ "${JASP_BUILD_DIR}" ]]; then
 		exit 1
 	fi
 	cp "${SYNTAXINTERFACE_BINARY_ORIGIN}" "src/${SYNTAXINTERFACE_DLL}"
-elif [ ! -f "src/${SYNTAXINTERFACE_DLL}" ]; then
+else
 	echo "Downloading pre-built ${SYNTAXINTERFACE_ASSET} from GitHub Release (${GITHUB_RELEASE_TAG})..."
 	if ! downloadFile "${GITHUB_RELEASE_URL}/${SYNTAXINTERFACE_ASSET}" "src/${SYNTAXINTERFACE_DLL}"; then
 		echo "ERROR: Could not download ${SYNTAXINTERFACE_ASSET}"
@@ -691,7 +699,7 @@ elif [[ "${JASP_BUILD_DIR}" ]]; then
 		exit 1
 	fi
 	cp "${RINTERFACE_ORIGIN}" src/
-elif [ ! -f "src/${RINTERFACE_DLL}" ]; then
+else
 	echo "Downloading pre-built ${RINTERFACE_ASSET} from GitHub Release (${GITHUB_RELEASE_TAG})..."
 	if ! downloadFile "${GITHUB_RELEASE_URL}/${RINTERFACE_ASSET}" "src/${RINTERFACE_DLL}"; then
 		echo "ERROR: Could not download ${RINTERFACE_ASSET}"

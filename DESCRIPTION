@@ -13,6 +13,7 @@ URL: https://github.com/jasp-stats/jaspSyntax
 BugReports: https://github.com/jasp-stats/jaspSyntax/issues
 SystemRequirements: libcurl or wget (for downloading the SyntaxInterface library during installation)
 Imports:
+    callr,
     jsonlite,
     Rcpp (>= 1.0.5)
 Suggests:

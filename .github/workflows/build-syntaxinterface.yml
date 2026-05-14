@@ -18,8 +18,8 @@ on:
         description: 'Release tag to upload assets to'
         required: false
         default: 'syntaxinterface-libs'
-  schedule:
-    - cron: '0 6 1,15 * *'   # 1st and 15th of each month at 06:00 UTC
+#  schedule:
+#    - cron: '0 6 1,15 * *'   # 1st and 15th of each month at 06:00 UTC
 
 # Cancel previous runs of this workflow on the same ref
 concurrency:
@@ -29,10 +29,9 @@ concurrency:
 env:
   JASP_DESKTOP_REF: ${{ github.event.inputs.jasp_desktop_ref || 'development' }}
   RELEASE_TAG: ${{ github.event.inputs.release_tag || 'syntaxinterface-libs' }}
-  QT_VERSION: '6.10.1'
+  QT_VERSION: '6.10.2'
   QT_SUBMODULES: 'qtbase,qtdeclarative,qtshadertools'
-  #NOTE: if you change QT_SUBMODULES or Qt configure flags, also update the cache key below in "Cache static Qt build".
-  #      We cannot reuse the QT_SUBMODULES env var for the cache key because it contains commas.
+  QT_SUBMODULES_CACHE_KEY: 'qtbase-qtdeclarative-qtshadertools'
 
 jobs:
 
@@ -74,15 +73,6 @@ jobs:
 
       # ---- System dependencies ----
 
-      - name: Free disk space (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          df -h /
-        # Yes, we occasionally get "no space left on device" errors on ubuntu-latest, even though it should have ~14 GB free when clean.
-        # The above commands are a common workaround to free up some extra space, we should occasionally re-evaluate the necessity of this.
-
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -96,7 +86,8 @@ jobs:
             libxcb-xinerama0 libxcb-cursor0 \
             libboost-dev libboost-filesystem-dev libboost-system-dev \
             libboost-date-time-dev libboost-timer-dev libboost-chrono-dev \
-            libminizip-dev libnss3-dev libnspr4-dev \
+            librdata-dev libfreexl-dev libminizip-dev libglpk-dev \
+            libjsoncpp-dev libnss3-dev libnspr4-dev \
             libxcomposite-dev libxdamage-dev libxrandr-dev libxtst-dev \
             libxi-dev libasound2-dev libxkbfile-dev \
             libxcb-icccm4-dev libxcb-shape0-dev libxcb-keysyms1-dev \
@@ -106,8 +97,9 @@ jobs:
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake ninja autoconf automake libtool pkg-config \
-            boost jsoncpp libarchive openssl sqlite
+          brew install cmake ninja autoconf automake libtool pkg-config
+          pip3 install --break-system-packages conan
+          conan profile detect --force
 
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
@@ -115,106 +107,72 @@ jobs:
         run: |
           choco install ninja -y
 
-      - name: Restore vcpkg cache (Windows)
-        if: runner.os == 'Windows'
-        id: cache-vcpkg
-        uses: actions/cache@v5
-        with:
-          path: C:/vcpkg/installed
-          key: vcpkg-v1-x64-windows-static-boost-sqlite3-libarchive
+      # ---- Install readstat (Linux) ----
 
-      - name: Install C++ dependencies via vcpkg (Windows)
-        if: runner.os == 'Windows' && steps.cache-vcpkg.outputs.cache-hit != 'true'
-        shell: cmd
+      - name: Install ReadStat from source (Linux)
+        if: runner.os == 'Linux'
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
-          vcpkg install boost-headers boost-filesystem boost-system boost-date-time boost-timer boost-chrono boost-interprocess sqlite3 libarchive --triplet x64-windows-static
+          wget -q https://github.com/WizardMac/ReadStat/releases/download/v1.1.9/readstat-1.1.9.tar.gz
+          tar -xzf readstat-1.1.9.tar.gz
+          cd readstat-1.1.9
+          ./configure --prefix=/usr/local
+          make -j$(nproc) CFLAGS='-Wno-error=use-after-free'
+          sudo make install
+          sudo ldconfig
 
-      # ---- Install Qt from source and build static ----
-
-      - name: Restore Qt cache
-        id: cache-qt
-        uses: actions/cache/restore@v5
-        with:
-          path: ${{ github.workspace }}/qt-static
-          key: qt-static-v4-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
-
-      - name: Download Qt source
-        if: steps.cache-qt.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          git clone --depth 1 --branch v${{ env.QT_VERSION }} https://code.qt.io/qt/qt5.git qt-src
-          cd qt-src
-          perl init-repository --module-subset=${{ env.QT_SUBMODULES }}
-
-      - name: Build static Qt (Unix)
-        if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os != 'Windows'
-        shell: bash
-        run: |
-          cd qt-src
-          ./configure -release -static -opensource -confirm-license \
-            -prefix ${{ github.workspace }}/qt-static \
-            -submodules ${{ env.QT_SUBMODULES }} \
-            -nomake examples -nomake tests -nomake benchmarks \
-            -optimize-size \
-            -no-icu \
-            -no-feature-printsupport -no-feature-sql \
-            -no-feature-dbus -no-feature-cups \
-            -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-               -DQT_FEATURE_qml_jit=OFF \
-               -DQT_FEATURE_qml_debug=OFF \
-               -DQT_FEATURE_qml_network=OFF
-          cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
-          cmake --install .
-          cd .. && rm -rf qt-src
-
-      - name: Build static Qt (Windows)
-        if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os == 'Windows'
-        shell: cmd
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
-          cd qt-src
-          call configure.bat -release -static -opensource -confirm-license ^
-            -prefix ${{ github.workspace }}\qt-static ^
-            -submodules ${{ env.QT_SUBMODULES }} ^
-            -nomake examples -nomake tests -nomake benchmarks ^
-            -optimize-size ^
-            -no-icu ^
-            -no-feature-printsupport -no-feature-sql ^
-            -no-feature-dbus -no-feature-cups ^
-            -- -DQT_FEATURE_qml_jit=OFF ^
-               -DQT_FEATURE_qml_debug=OFF ^
-               -DQT_FEATURE_qml_network=OFF
-          cmake --build . --parallel
-          cmake --install .
-          cd .. && rmdir /s /q qt-src
-
-      - name: Save Qt cache
-        if: steps.cache-qt.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: ${{ github.workspace }}/qt-static
-          key: qt-static-v4-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-qtbase-qtdeclarative-qtshadertools
-
-      # ---- Setup R (after Qt build to avoid rtools45 PATH pollution on Windows) ----
+      # ---- Setup R ----
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release'
 
-      - name: Install rtools45 MinGW toolchain (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          # R-Interface on Windows is cross-compiled with MinGW (R uses MinGW, not MSVC).
-          # setup-r installs rtools45 but the ucrt64 toolchain may not be present.
-          # See also: jasp-desktop/Docs/development/jasp-build-guide-windows.md
-          /c/rtools45/usr/bin/pacman.exe -Sy --noconfirm mingw-w64-ucrt-x86_64-toolchain make
-
       - name: Install Rcpp and RInside
         run: |
           Rscript -e 'install.packages(c("Rcpp", "RInside"), repos = "https://cloud.r-project.org")'
+
+      # ---- Install Qt from source and build static ----
+
+      - name: Cache static Qt build
+        id: cache-qt
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/qt-static
+          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES_CACHE_KEY }}
+
+      - name: Install aqtinstall
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: pip3 install --break-system-packages aqtinstall
+
+      - name: Download Qt source
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          aqt install-src -O qt-src all_os desktop "${{ env.QT_VERSION }}"
+
+      - name: Build static Qt (Unix)
+        if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd qt-src/${{ env.QT_VERSION }}/Src
+          ./configure -release -static -opensource -confirm-license \
+            -prefix ${{ github.workspace }}/qt-static \
+            -submodules ${{ env.QT_SUBMODULES }} \
+            -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
+          cmake --install .
+
+      - name: Build static Qt (Windows)
+        if: steps.cache-qt.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          cd qt-src\${{ env.QT_VERSION }}\Src
+          configure.bat -release -static -opensource -confirm-license ^
+            -prefix ${{ github.workspace }}\qt-static ^
+            -submodules ${{ env.QT_SUBMODULES }}
+          cmake --build . --parallel
+          cmake --install .
 
       # ---- Clone and build jasp-desktop / SyntaxInterface ----
 
@@ -224,25 +182,41 @@ jobs:
           repository: jasp-stats/jasp-desktop
           ref: ${{ env.JASP_DESKTOP_REF }}
           path: jasp-desktop
-          submodules: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure jasp-desktop (Unix)
-        if: runner.os != 'Windows'
+      - name: Restore Conan package cache (macOS)
+        if: runner.os == 'macOS'
+        id: cache-conan
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.conan2/p
+          key: conan-v1-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('jasp-desktop/conanfile.py') }}
+          restore-keys: |
+            conan-v1-${{ matrix.os }}-${{ matrix.arch }}-
+
+      - name: Configure jasp-desktop (macOS)
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           R_HOME=$(R RHOME)
-          # On macOS, add brew prefix paths for keg-only libraries
-          EXTRA_PREFIX=""
-          if [ "$(uname)" = "Darwin" ]; then
-            EXTRA_PREFIX="$(brew --prefix libarchive);$(brew --prefix sqlite);$(brew --prefix openssl)"
-          fi
           cmake -G Ninja -S jasp-desktop -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt-static;${EXTRA_PREFIX}" \
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt-static" \
             -DCUSTOM_R_PATH="${R_HOME}" \
             -DREQUIRE_GITHUB_PAT=OFF \
-            -DUSE_CONAN=OFF \
+            -DJASP_SYNTAX_INTERFACE_ONLY=ON \
+            -DINSTALL_R_MODULES=OFF \
+            -DBUILD_TESTS=OFF
+
+      - name: Configure jasp-desktop (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          R_HOME=$(R RHOME)
+          cmake -G Ninja -S jasp-desktop -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}/qt-static" \
+            -DCUSTOM_R_PATH="${R_HOME}" \
             -DINSTALL_R_MODULES=OFF \
             -DBUILD_TESTS=OFF
 
@@ -255,18 +229,21 @@ jobs:
           cmake -G Ninja -S jasp-desktop -B build ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}\qt-static ^
-            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake ^
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static ^
-            -DVS_PATH="C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC" ^
             -DREQUIRE_GITHUB_PAT=OFF ^
-            -DUSE_CONAN=OFF ^
+            -DJASP_SYNTAX_INTERFACE_ONLY=ON ^
             -DINSTALL_R_MODULES=OFF ^
             -DBUILD_TESTS=OFF
 
-      - name: Build SyntaxInterface (Unix)
-        if: runner.os != 'Windows'
+      - name: Build SyntaxInterface
         shell: bash
         run: cmake --build build --target SyntaxInterface --parallel
+
+      - name: Save Conan package cache (macOS)
+        if: runner.os == 'macOS' && steps.cache-conan.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.conan2/p
+          key: conan-v1-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('jasp-desktop/conanfile.py') }}
 
       - name: Build SyntaxInterface (Windows)
         if: runner.os == 'Windows'
@@ -287,23 +264,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          # Ninja on Windows may place DLLs in build/bin/ or build/SyntaxInterface/ — search for them
-          echo "--- Searching for SyntaxInterface.dll ---"
-          find build -name 'SyntaxInterface.dll' -type f
-          SI_DLL=$(find build -name 'SyntaxInterface.dll' -type f | head -1)
-          if [ -z "$SI_DLL" ]; then
-            echo "ERROR: SyntaxInterface.dll not found anywhere under build/"
-            exit 1
-          fi
-          echo "Found: $SI_DLL"
-          cp "$SI_DLL" ${{ matrix.artifact }}
-
-          echo "--- Searching for libR-InterfaceNoRInside.dll ---"
-          find build -name 'libR-InterfaceNoRInside.dll' -type f
-          RI_DLL=$(find build -name 'libR-InterfaceNoRInside.dll' -type f | head -1)
-          if [ -n "$RI_DLL" ]; then
-            echo "Found: $RI_DLL"
-            cp "$RI_DLL" libR-InterfaceNoRInside-windows-x86_64.dll
+          # On Windows we also need libR-InterfaceNoRInside.dll
+          cp build/SyntaxInterface/${{ matrix.lib_file }} ${{ matrix.artifact }}
+          if [ -f build/R-Interface/libR-InterfaceNoRInside.dll ]; then
+            cp build/R-Interface/libR-InterfaceNoRInside.dll libR-InterfaceNoRInside-windows-x86_64.dll
           fi
 
       - name: Upload artifact

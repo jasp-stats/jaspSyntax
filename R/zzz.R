@@ -16,16 +16,14 @@
 .prioritizeQtRoots <- function(qtRoots, explicitRoots = character(0)) {
   qtRoots <- unique(normalizePath(qtRoots[nzchar(qtRoots)], winslash = "/", mustWork = FALSE))
   explicitRoots <- unique(normalizePath(explicitRoots[nzchar(explicitRoots)], winslash = "/", mustWork = FALSE))
-  discoveredRoots <- setdiff(qtRoots, explicitRoots)
+  msvcRoots <- qtRoots[grepl("/msvc", qtRoots, ignore.case = TRUE)]
+  siblingMsvcRoots <- unique(unlist(lapply(dirname(qtRoots), function(parent) {
+    Sys.glob(file.path(parent, "msvc*"))
+  }), use.names = FALSE))
+  siblingMsvcRoots <- normalizePath(siblingMsvcRoots[nzchar(siblingMsvcRoots)], winslash = "/", mustWork = FALSE)
+  siblingMsvcRoots <- siblingMsvcRoots[dir.exists(file.path(siblingMsvcRoots, "bin"))]
 
-  siblingRoots <- unlist(lapply(discoveredRoots, function(qtRoot) {
-    parent <- dirname(qtRoot)
-    c(Sys.glob(file.path(parent, "msvc*")), Sys.glob(file.path(parent, "mingw*")))
-  }), use.names = FALSE)
-  siblingRoots <- normalizePath(siblingRoots[nzchar(siblingRoots)], winslash = "/", mustWork = FALSE)
-  siblingRoots <- siblingRoots[dir.exists(file.path(siblingRoots, "bin"))]
-
-  unique(c(explicitRoots, siblingRoots, discoveredRoots))
+  unique(c(explicitRoots, msvcRoots, siblingMsvcRoots, qtRoots))
 }
 
 .onLoad <- function(libname, pkgname) {

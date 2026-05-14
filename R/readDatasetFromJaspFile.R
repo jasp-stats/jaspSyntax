@@ -399,7 +399,8 @@ loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NUL
     options = options,
     fresh = TRUE,
     includeMeta = includeMeta,
-    includeTypeOptions = includeTypeOptions
+    includeTypeOptions = includeTypeOptions,
+    isolated = FALSE
   )
 
   loadedRaw <- .readBridgeDataset(".readFullDatasetToEnd", "loaded dataset")

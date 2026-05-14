@@ -402,14 +402,15 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
   restoreReadQml <- localNamespaceBinding(
     "readAnalysisOptionsFromQml",
     function(modulePath, analysisName, options, fresh,
-             includeMeta, includeTypeOptions) {
+             includeMeta, includeTypeOptions, isolated) {
       replayArgs <<- list(
         modulePath = modulePath,
         analysisName = analysisName,
         options = options,
         fresh = fresh,
         includeMeta = includeMeta,
-        includeTypeOptions = includeTypeOptions
+        includeTypeOptions = includeTypeOptions,
+        isolated = isolated
       )
       list(variables = "JaspColumn_1_Encoded", `variables.types` = "scale")
     },
@@ -468,6 +469,7 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
   expect_true(replayArgs$fresh)
   expect_false(replayArgs$includeMeta)
   expect_true(replayArgs$includeTypeOptions)
+  expect_false(replayArgs$isolated)
   expect_equal(names(state$loadedDataset), c("score", "group"))
   expect_equal(names(state$requestedDataset), "score")
   expect_equal(state$requestedDataset$score, c("control", "treatment"))
@@ -674,18 +676,19 @@ test_that("subprocess package loading distinguishes source checkouts from instal
 
   expect_true(jaspSyntax:::.isSourceCheckoutPath(sourceDir))
   expect_false(jaspSyntax:::.isSourceCheckoutPath(installedDir))
+  loaderBody <- paste(deparse(body(jaspSyntax:::.bridgeSubprocessPackageLoader())), collapse = "\n")
   expect_match(
-    paste(jaspSyntax:::.bridgeSubprocessPackageLoaderScript(), collapse = "\n"),
+    loaderBody,
     "pkgload::load_all",
     fixed = TRUE
   )
   expect_match(
-    paste(jaspSyntax:::.bridgeSubprocessPackageLoaderScript(), collapse = "\n"),
-    "c(buildDirs, dllDirs, pathEntries)",
+    loaderBody,
+    "file.path(buildDir, \"R-Interface\")",
     fixed = TRUE
   )
   expect_match(
-    paste(jaspSyntax:::.bridgeSubprocessPackageLoaderScript(), collapse = "\n"),
+    loaderBody,
     "jaspSyntax subprocess PATH head",
     fixed = TRUE
   )
@@ -698,6 +701,7 @@ test_that("subprocess package loading distinguishes source checkouts from instal
   )
   descriptionPath <- descriptionCandidates[file.exists(descriptionCandidates)][1L]
   description <- read.dcf(descriptionPath)
+  expect_match(description[1L, "Imports"], "callr", fixed = TRUE)
   expect_match(description[1L, "Suggests"], "pkgload", fixed = TRUE)
 })
 

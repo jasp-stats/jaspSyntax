@@ -201,7 +201,7 @@ test_that("readAnalysisOptionsFromJaspFile can replay saved options through QML 
   restoreReadQml <- localNamespaceBinding(
     "readAnalysisOptionsFromQml",
     function(modulePath, analysisName, options, version, fresh,
-             includeMeta, includeTypeOptions) {
+             includeMeta, includeTypeOptions, isolated) {
       replayArgs <<- list(
         modulePath = modulePath,
         analysisName = analysisName,
@@ -209,7 +209,8 @@ test_that("readAnalysisOptionsFromJaspFile can replay saved options through QML 
         version = version,
         fresh = fresh,
         includeMeta = includeMeta,
-        includeTypeOptions = includeTypeOptions
+        includeTypeOptions = includeTypeOptions,
+        isolated = isolated
       )
       list(variables = "JaspColumn_1_Encoded", `variables.types` = "scale")
     },
@@ -234,6 +235,7 @@ test_that("readAnalysisOptionsFromJaspFile can replay saved options through QML 
   expect_true(replayArgs$fresh)
   expect_false(replayArgs$includeMeta)
   expect_true(replayArgs$includeTypeOptions)
+  expect_false(replayArgs$isolated)
   expect_equal(records[[1]]$options$variables, "JaspColumn_1_Encoded")
   expect_equal(records[[1]]$options$`variables.types`, "scale")
 })
@@ -243,7 +245,7 @@ test_that("runtime replay resolves QML metadata through the module description",
   restoreParseQml <- localNamespaceBinding(
     "parseQmlOptions",
     function(qmlFile, options, moduleName, analysisName, version,
-             preloadData, fresh, includeMeta, includeTypeOptions) {
+             preloadData, fresh, includeMeta, includeTypeOptions, isolated) {
       parseArgs <<- list(
         qmlFile = qmlFile,
         options = options,
@@ -253,7 +255,8 @@ test_that("runtime replay resolves QML metadata through the module description",
         preloadData = preloadData,
         fresh = fresh,
         includeMeta = includeMeta,
-        includeTypeOptions = includeTypeOptions
+        includeTypeOptions = includeTypeOptions,
+        isolated = isolated
       )
       list(runtime = TRUE)
     },
@@ -284,6 +287,7 @@ test_that("runtime replay resolves QML metadata through the module description",
   expect_true(parseArgs$fresh)
   expect_false(parseArgs$includeMeta)
   expect_true(parseArgs$includeTypeOptions)
+  expect_false(parseArgs$isolated)
   expect_true(replayed$options$runtime)
 })
 
@@ -409,7 +413,7 @@ test_that("multi-analysis runtime replay loads data once and replays each record
   restoreReadQml <- localNamespaceBinding(
     "readAnalysisOptionsFromQml",
     function(modulePath, analysisName, options, version, fresh,
-             includeMeta, includeTypeOptions) {
+             includeMeta, includeTypeOptions, isolated) {
       replayCalls[[length(replayCalls) + 1L]] <<- list(
         modulePath = modulePath,
         analysisName = analysisName,
@@ -417,7 +421,8 @@ test_that("multi-analysis runtime replay loads data once and replays each record
         version = version,
         fresh = fresh,
         includeMeta = includeMeta,
-        includeTypeOptions = includeTypeOptions
+        includeTypeOptions = includeTypeOptions,
+        isolated = isolated
       )
       list(replayed = analysisName, source = options$source)
     },
@@ -440,6 +445,7 @@ test_that("multi-analysis runtime replay loads data once and replays each record
   expect_equal(vapply(replayCalls, `[[`, character(1L), "analysisName"),
                c("RuntimeOne", "RuntimeTwo"))
   expect_true(all(vapply(replayCalls, `[[`, logical(1L), "fresh")))
+  expect_false(any(vapply(replayCalls, `[[`, logical(1L), "isolated")))
   expect_equal(records$RuntimeOne$options, list(replayed = "RuntimeOne", source = "saved-0"))
   expect_equal(records$RuntimeTwo$options, list(replayed = "RuntimeTwo", source = "saved-1"))
 })

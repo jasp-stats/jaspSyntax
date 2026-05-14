@@ -128,7 +128,8 @@ test_that("readAnalysisOptionsFromQml returns Desktop runtime-encoded variable o
     fixtureModule,
     "VariableAnalysis",
     options = list(variables = "x"),
-    includeMeta = FALSE
+    includeMeta = FALSE,
+    isolated = FALSE
   )
 
   expect_true("variables.types" %in% names(opts))
