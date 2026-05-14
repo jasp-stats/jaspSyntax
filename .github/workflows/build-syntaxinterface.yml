@@ -31,6 +31,7 @@ env:
   RELEASE_TAG: ${{ github.event.inputs.release_tag || 'syntaxinterface-libs' }}
   QT_VERSION: '6.10.2'
   QT_SUBMODULES: 'qtbase,qtdeclarative,qtshadertools'
+  QT_SUBMODULES_CACHE_KEY: 'qtbase-qtdeclarative-qtshadertools'
 
 jobs:
 
@@ -137,7 +138,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES }}
+          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES_CACHE_KEY }}
 
       - name: Install aqtinstall
         if: steps.cache-qt.outputs.cache-hit != 'true'
