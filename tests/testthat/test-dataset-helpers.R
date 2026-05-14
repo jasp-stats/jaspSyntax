@@ -681,7 +681,12 @@ test_that("subprocess package loading distinguishes source checkouts from instal
   )
   expect_match(
     paste(jaspSyntax:::.bridgeSubprocessPackageLoaderScript(), collapse = "\n"),
-    "c(Sys.getenv('PATH'), dllDirs)",
+    "c(buildDirs, dllDirs, pathEntries)",
+    fixed = TRUE
+  )
+  expect_match(
+    paste(jaspSyntax:::.bridgeSubprocessPackageLoaderScript(), collapse = "\n"),
+    "jaspSyntax subprocess PATH head",
     fixed = TRUE
   )
 

@@ -34,7 +34,14 @@
     "    dllDirs <- c(file.path(packagePath, 'src'), file.path(packagePath, 'libs', R.version$arch), file.path(packagePath, 'libs'))",
     "    dllDirs <- dllDirs[dir.exists(dllDirs)]",
     "    if (.Platform$OS.type == 'windows' && length(dllDirs) > 0L) {",
-    "      Sys.setenv(PATH = paste(c(Sys.getenv('PATH'), dllDirs), collapse = .Platform$path.sep))",
+    "      pathEntries <- strsplit(Sys.getenv('PATH'), .Platform$path.sep, fixed = TRUE)[[1L]]",
+    "      pathEntries <- pathEntries[nzchar(pathEntries)]",
+    "      buildDir <- Sys.getenv('JASP_BUILD_DIR')",
+    "      buildDirs <- if (nzchar(buildDir) && dir.exists(buildDir)) buildDir else character(0)",
+    "      Sys.setenv(PATH = paste(unique(c(buildDirs, dllDirs, pathEntries)), collapse = .Platform$path.sep))",
+    "      message('jaspSyntax subprocess source package: ', packagePath)",
+    "      message('jaspSyntax subprocess DLL dirs: ', paste(dllDirs, collapse = ';'))",
+    "      message('jaspSyntax subprocess PATH head: ', paste(head(strsplit(Sys.getenv('PATH'), .Platform$path.sep, fixed = TRUE)[[1L]], 8L), collapse = ';'))",
     "    }",
     "    if (!requireNamespace('pkgload', quietly = TRUE)) {",
     "      stop('pkgload is required to load source-checkout jaspSyntax in a subprocess')",
@@ -108,8 +115,9 @@
   outputSuffix <- .bridgeSubprocessOutputSuffix(output)
 
   if (!file.exists(outputPath)) {
+    statusMessage <- if (!is.null(status)) paste0(" (exit status ", status, ")") else ""
     stop(
-      failureLabel, " failed before producing a result.",
+      failureLabel, " failed before producing a result", statusMessage, ".",
       outputSuffix,
       call. = FALSE
     )
