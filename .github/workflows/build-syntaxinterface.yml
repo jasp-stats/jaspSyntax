@@ -30,7 +30,7 @@ env:
   JASP_DESKTOP_REF: ${{ github.event.inputs.jasp_desktop_ref || 'development' }}
   RELEASE_TAG: ${{ github.event.inputs.release_tag || 'syntaxinterface-libs' }}
   QT_VERSION: '6.10.2'
-  QT_SUBMODULES: 'qtbase qtdeclarative qtshadertools'
+  QT_SUBMODULES: 'qtbase,qtdeclarative,qtshadertools'
 
 jobs:
 
@@ -97,7 +97,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install cmake ninja autoconf automake libtool pkg-config
-          pip3 install conan
+          pip3 install --break-system-packages conan
           conan profile detect --force
 
       - name: Install system dependencies (Windows)
