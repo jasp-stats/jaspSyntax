@@ -88,6 +88,51 @@ JASP_BUILD_DIR="${JASP_BUILD_DIR:-}"
 # JASPSYNTAX_LIB_PATH: direct path to a pre-built libSyntaxInterface (.so/.dylib)
 # Overrides both JASP_BUILD_DIR and the GitHub Release download.
 JASPSYNTAX_LIB_PATH="${JASPSYNTAX_LIB_PATH:-}"
+SYNTAXINTERFACE_HEADER_PATH="src/syntaxbridge_interface.h"
+SYNTAXINTERFACE_HEADER_ORIGIN=""
+SYNTAXINTERFACE_BINARY_PATH="src/${DLL_NAME}"
+SYNTAXINTERFACE_BINARY_ORIGIN=""
+
+function fileSha256() {
+	local FILE_PATH="$1"
+
+	if [ ! -f "${FILE_PATH}" ]; then
+		echo "unavailable"
+	elif command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "${FILE_PATH}" | awk '{print $1}'
+	elif command -v shasum >/dev/null 2>&1; then
+		shasum -a 256 "${FILE_PATH}" | awk '{print $1}'
+	else
+		echo "unavailable"
+	fi
+}
+
+function writeSyntaxInterfaceProvenance() {
+	if [ -z "${SYNTAXINTERFACE_HEADER_ORIGIN}" ]; then
+		SYNTAXINTERFACE_HEADER_ORIGIN="local:${SYNTAXINTERFACE_HEADER_PATH}"
+	fi
+	if [ -z "${SYNTAXINTERFACE_BINARY_ORIGIN}" ]; then
+		SYNTAXINTERFACE_BINARY_ORIGIN="local:${SYNTAXINTERFACE_BINARY_PATH}"
+	fi
+
+	cat > "src/SyntaxInterface.provenance" <<EOF
+schema=1
+recorded_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date)
+platform=${UNAME_S}
+architecture=${ARCH}
+release_tag=${GITHUB_RELEASE_TAG}
+header_path=${SYNTAXINTERFACE_HEADER_PATH}
+header_origin=${SYNTAXINTERFACE_HEADER_ORIGIN}
+binary_path=${SYNTAXINTERFACE_BINARY_PATH}
+binary_origin=${SYNTAXINTERFACE_BINARY_ORIGIN}
+header_sha256=$(fileSha256 "${SYNTAXINTERFACE_HEADER_PATH}")
+binary_sha256=$(fileSha256 "${SYNTAXINTERFACE_BINARY_PATH}")
+jasp_source_dir=${JASP_SOURCE_DIR}
+jasp_build_dir=${JASP_BUILD_DIR}
+jaspsyntax_lib_path=${JASPSYNTAX_LIB_PATH}
+check_exports=${JASPSYNTAX_CHECK_EXPORTS:-auto}
+EOF
+}
 
 # ---------- Download header files if needed ----------
 
@@ -97,6 +142,8 @@ if [[ "${JASP_SOURCE_DIR}" ]]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
 	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\" -I\"${JASP_SOURCE_DIR}/Common\""
 	mkdir -p 'src/json'
+	SYNTAXINTERFACE_HEADER_ORIGIN="${JASP_SOURCE_DIR}/SyntaxInterface/syntaxbridge_interface.h"
+	cp "${SYNTAXINTERFACE_HEADER_ORIGIN}" "${SYNTAXINTERFACE_HEADER_PATH}"
 
 	for i in ${JSON_FILES}; do
 		cp "${JASP_SOURCE_DIR}/Common/json/${i}" "src/json/${i}"
@@ -107,6 +154,7 @@ elif [ ! -f "src/syntaxbridge_interface.h" ]; then
 	fi
 
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
+	SYNTAXINTERFACE_HEADER_ORIGIN="${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface/syntaxbridge_interface.h"
 
 	mkdir -p 'src/json'
 
@@ -119,10 +167,12 @@ fi
 
 if [[ "${JASPSYNTAX_LIB_PATH}" ]]; then
 	echo "Using JASPSYNTAX_LIB_PATH: ${JASPSYNTAX_LIB_PATH}"
+	SYNTAXINTERFACE_BINARY_ORIGIN="${JASPSYNTAX_LIB_PATH}"
 	cp "${JASPSYNTAX_LIB_PATH}" "src/${DLL_NAME}"
 elif [[ "${JASP_BUILD_DIR}" ]]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
-	cp "${JASP_BUILD_DIR}/SyntaxInterface/${DLL_NAME}" "src/${DLL_NAME}"
+	SYNTAXINTERFACE_BINARY_ORIGIN="${JASP_BUILD_DIR}/SyntaxInterface/${DLL_NAME}"
+	cp "${SYNTAXINTERFACE_BINARY_ORIGIN}" "src/${DLL_NAME}"
 elif [ ! -f "src/${DLL_NAME}" ]; then
 
 	echo "Downloading pre-built ${RELEASE_ASSET} from GitHub Release (${GITHUB_RELEASE_TAG})..."
@@ -170,11 +220,18 @@ elif [ ! -f "src/${DLL_NAME}" ]; then
 			echo "Warning: could not download SHA256SUMS, skipping checksum verification"
 		fi
 	fi
+	SYNTAXINTERFACE_BINARY_ORIGIN="${GITHUB_RELEASE_URL}/${RELEASE_ASSET}"
 fi
 
+writeSyntaxInterfaceProvenance
+
+SYNTAXINTERFACE_HEADER_ORIGIN="${SYNTAXINTERFACE_HEADER_ORIGIN}" \
+SYNTAXINTERFACE_BINARY_ORIGIN="${SYNTAXINTERFACE_BINARY_ORIGIN}" \
+	"${BASH:-bash}" tools/check-syntaxinterface-symbols.sh "${SYNTAXINTERFACE_HEADER_PATH}" "${SYNTAXINTERFACE_BINARY_PATH}" "src/syntaxfunctions.cpp"
 
 mkdir -p inst/libs
 cp "src/${DLL_NAME}" "inst/libs/${DLL_NAME}"
+cp "src/SyntaxInterface.provenance" "inst/libs/SyntaxInterface.provenance"
 
 PKG_LIBS=-lSyntaxInterface
 

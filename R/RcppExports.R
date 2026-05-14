@@ -5,6 +5,18 @@ cleanUp <- function() {
     invisible(.Call(`_jaspSyntax_cleanUp`))
 }
 
+clearQmlFormsNative <- function() {
+    invisible(.Call(`_jaspSyntax_clearQmlFormsNative`))
+}
+
+clearDatasetStateNative <- function() {
+    invisible(.Call(`_jaspSyntax_clearDatasetStateNative`))
+}
+
+clearNativeStateNative <- function() {
+    invisible(.Call(`_jaspSyntax_clearNativeStateNative`))
+}
+
 setParameter <- function(name, value) {
     .Call(`_jaspSyntax_setParameter`, name, value)
 }

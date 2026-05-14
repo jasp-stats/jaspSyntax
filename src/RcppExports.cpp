@@ -19,6 +19,33 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// clearQmlFormsNative
+void clearQmlFormsNative();
+RcppExport SEXP _jaspSyntax_clearQmlFormsNative() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    clearQmlFormsNative();
+    return R_NilValue;
+END_RCPP
+}
+// clearDatasetStateNative
+void clearDatasetStateNative();
+RcppExport SEXP _jaspSyntax_clearDatasetStateNative() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    clearDatasetStateNative();
+    return R_NilValue;
+END_RCPP
+}
+// clearNativeStateNative
+void clearNativeStateNative();
+RcppExport SEXP _jaspSyntax_clearNativeStateNative() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    clearNativeStateNative();
+    return R_NilValue;
+END_RCPP
+}
 // setParameter
 bool setParameter(String name, SEXP value);
 RcppExport SEXP _jaspSyntax_setParameter(SEXP nameSEXP, SEXP valueSEXP) {
@@ -126,6 +153,9 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_cleanUp", (DL_FUNC) &_jaspSyntax_cleanUp, 0},
+    {"_jaspSyntax_clearQmlFormsNative", (DL_FUNC) &_jaspSyntax_clearQmlFormsNative, 0},
+    {"_jaspSyntax_clearDatasetStateNative", (DL_FUNC) &_jaspSyntax_clearDatasetStateNative, 0},
+    {"_jaspSyntax_clearNativeStateNative", (DL_FUNC) &_jaspSyntax_clearNativeStateNative, 0},
     {"_jaspSyntax_setParameter", (DL_FUNC) &_jaspSyntax_setParameter, 2},
     {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
     {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},

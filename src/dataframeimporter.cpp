@@ -67,6 +67,24 @@ std::vector<std::string> DataFrameImporter::readCharacterVector(Rcpp::Vector<RTY
 	return vecresult;
 }
 
+std::vector<std::string> DataFrameImporter::readFactorVector(Rcpp::IntegerVector obj)
+{
+	Rcpp::CharacterVector levels = obj.attr("levels");
+	std::vector<std::string> result;
+	result.reserve(obj.size());
+
+	for (int row = 0; row < obj.size(); row++)
+	{
+		int levelIndex = obj[row];
+		if (levelIndex == NA_INTEGER || levelIndex < 1 || levelIndex > levels.size() || levels[levelIndex - 1] == NA_STRING)
+			result.push_back("");
+		else
+			result.push_back(Rcpp::as<std::string>(levels[levelIndex - 1]));
+	}
+
+	return result;
+}
+
 void DataFrameImporter::freeDataSet()
 {
 	for (int colNr = 0; colNr < datasetStatic.columnCount; colNr++)
@@ -87,7 +105,7 @@ void DataFrameImporter::freeDataSet()
 	datasetStatic.columns = nullptr;
 }
 
-const SyntaxBridgeDataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe)
+const SyntaxBridgeDataSet& DataFrameImporter::loadDataFrame(const Rcpp::List& dataframe)
 {
 	freeDataSet();
 
@@ -117,7 +135,8 @@ const SyntaxBridgeDataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe
 
 		Rcpp::RObject colObj = (Rcpp::RObject)dataframe[colNr];
 
-		if(Rcpp::is<Rcpp::NumericVector>(colObj))			colValues = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
+		if(Rf_inherits(colObj, "factor"))					colValues = readFactorVector((Rcpp::IntegerVector)colObj);
+		else if(Rcpp::is<Rcpp::NumericVector>(colObj))		colValues = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
 		else if(Rcpp::is<Rcpp::IntegerVector>(colObj))		colValues = readCharacterVector<INTSXP>((Rcpp::IntegerVector)colObj);
 		else if(Rcpp::is<Rcpp::LogicalVector>(colObj))		colValues = readCharacterVector<LGLSXP>((Rcpp::LogicalVector)colObj);
 		else if(Rcpp::is<Rcpp::CharacterVector>(colObj))	colValues = readCharacterVector<STRSXP>((Rcpp::CharacterVector)colObj);
@@ -128,8 +147,9 @@ const SyntaxBridgeDataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe
 			colValues = std::vector<std::string>(maxRows);
 		}
 
-		if (colValues.size() > maxRows)
-			maxRows = colValues.size();
+		const int columnRows = static_cast<int>(colValues.size());
+		if (columnRows > maxRows)
+			maxRows = columnRows;
 
 		allColumns.push_back(colValues);
 	}

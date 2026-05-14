@@ -1,0 +1,8 @@
+Package: jaspDescriptives
+Type: Package
+Title: Descriptives Replay Fixture
+Version: 0.95.5
+Author: JASP Team
+Maintainer: JASP Team <info@jasp-stats.org>
+Description: Minimal Descriptives module fixture for saved .jasp replay.
+License: GPL (>= 2)

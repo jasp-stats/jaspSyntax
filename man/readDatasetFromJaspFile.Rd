@@ -18,7 +18,10 @@ Reads the dataset stored inside a saved JASP file and materializes it as an R \c
 \details{
 This function isolates the native jaspSyntax dataset-loading path in a short-lived subprocess so repeated calls remain safe within the calling R session.
 
-Categorical columns are returned as character vectors. Numeric columns are returned using the bridge's native conversion.
+Dataset materialization is delegated to \code{\link{readLoadedDataset}} so
+column-name decoding and bridge factor normalization stay behind the jaspSyntax
+dataset API. Categorical columns are returned as character vectors. Numeric
+columns are returned using the bridge's native conversion.
 }
 \examples{
 \dontrun{

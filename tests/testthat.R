@@ -1,4 +1,4 @@
-library(jaspTools)
 library(testthat)
+library(jaspSyntax)
 
-jaspTools::runTestsTravis(module = getwd())
+test_check("jaspSyntax")

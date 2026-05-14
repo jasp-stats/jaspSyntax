@@ -60,7 +60,36 @@ Json::Value parseBridgeJsonOrStop(const char * rawJson, const char * functionNam
 // [[Rcpp::export]]
 void cleanUp()
 {
-	syntaxBridgeCleanup();
+	callBridgeOrStop("syntaxBridgeClearNativeState", []() {
+		syntaxBridgeClearNativeState();
+	});
+	callBridgeOrStop("syntaxBridgeCleanup", []() {
+		syntaxBridgeCleanup();
+	});
+}
+
+// [[Rcpp::export]]
+void clearQmlFormsNative()
+{
+	callBridgeOrStop("syntaxBridgeClearQmlState", []() {
+		syntaxBridgeClearQmlState();
+	});
+}
+
+// [[Rcpp::export]]
+void clearDatasetStateNative()
+{
+	callBridgeOrStop("syntaxBridgeClearDataSetState", []() {
+		syntaxBridgeClearDataSetState();
+	});
+}
+
+// [[Rcpp::export]]
+void clearNativeStateNative()
+{
+	callBridgeOrStop("syntaxBridgeClearNativeState", []() {
+		syntaxBridgeClearNativeState();
+	});
 }
 
 // [[Rcpp::export]]
@@ -92,7 +121,9 @@ void loadDataSet(Rcpp::List data)
 {
 	const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(data);
 
-	syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
+	callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
+		syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
+	});
 }
 
 
@@ -106,7 +137,9 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 				moduleNameStr	= moduleName.get_cstring();
 
 
-	return syntaxBridgeLoadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+	return callBridgeOrStop("syntaxBridgeLoadQmlAndParseOptions", [&]() {
+		return syntaxBridgeLoadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+	});
 }
 
 // [[Rcpp::export]]
@@ -114,7 +147,9 @@ String generateModuleWrappers(String modulePath)
 {
 	std::string modulePathStr = modulePath.get_cstring();
 
-	return syntaxBridgeGenerateModuleWrappers(modulePathStr.c_str());
+	return callBridgeOrStop("syntaxBridgeGenerateModuleWrappers", [&]() {
+		return syntaxBridgeGenerateModuleWrappers(modulePathStr.c_str());
+	});
 }
 
 // [[Rcpp::export]]
@@ -143,10 +178,12 @@ Rcpp::List parseDescription(String modulePath)
 	result["isCommon"]			= parsedDescription["isCommon"].asBool();
 	result["version"]			= parsedDescription["version"].asString();
 
-	Rcpp::List analyses;
+	const Json::Value & jsonAnalyses = parsedDescription["analyses"];
+	Rcpp::List analyses(jsonAnalyses.size());
 
-	for (const Json::Value & jsonAnalysis : parsedDescription["analyses"])
+	for (Json::ArrayIndex i = 0; i < jsonAnalyses.size(); ++i)
 	{
+		const Json::Value & jsonAnalysis = jsonAnalyses[i];
 		Rcpp::List analysis;
 		analysis["name"]		= jsonAnalysis["name"].asString();
 		analysis["qml"]			= jsonAnalysis["qml"].asString();
@@ -154,7 +191,7 @@ Rcpp::List parseDescription(String modulePath)
 		analysis["preloadData"] = jsonAnalysis["preloadData"].asBool();
 		analysis["hasWrapper"]	= jsonAnalysis["hasWrapper"].asBool();
 
-		analyses.push_back(analysis);
+		analyses[i] = analysis;
 	}
 
 	result["analyses"] = analyses;
@@ -167,61 +204,66 @@ void loadDataSetFromJaspFile(String jaspFilePath)
 {
 	std::string jaspFilePathStr = jaspFilePath.get_cstring();
 
-	callBridgeOrStop("syntaxBridgeLoadDataSetFromJaspFile", [&]() {
-		syntaxBridgeLoadDataSetFromJaspFile(jaspFilePathStr.c_str(), global_param_dbInMemory);
-		return 0;
-	});
+	Json::Value status = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeLoadDataSetFromJaspFileStatus", [&]() {
+			return syntaxBridgeLoadDataSetFromJaspFileStatus(jaspFilePathStr.c_str(), global_param_dbInMemory);
+		}),
+		"syntaxBridgeLoadDataSetFromJaspFileStatus"
+	);
+
+	if (!status["ok"].asBool())
+	{
+		std::string error = status.isMember("error") ? status["error"].asString() : "unknown error";
+		Rcpp::stop("syntaxBridgeLoadDataSetFromJaspFile failed: %s", error);
+	}
 }
 
-Rcpp::List transformJsonObjectToRcppList(const Json::Value & json);
+SEXP transformJsonValueToSEXP(const Json::Value & json);
 
 Rcpp::List transformJsonArrayToRcppList(const Json::Value & json)
 {
-	Rcpp::List result;
-	for (const Json::Value & jsonElement : json)
-	{
-		if (jsonElement.isBool())
-			result.push_back(jsonElement.asBool());
-		else if (jsonElement.isInt())
-			result.push_back(jsonElement.asInt());
-		else if (jsonElement.isDouble()) // must be after isInt!
-			result.push_back(jsonElement.asDouble());
-		else if (jsonElement.isString())
-			result.push_back(jsonElement.asString());
-		else if (jsonElement.isArray())
-			result.push_back(transformJsonArrayToRcppList(jsonElement));
-		else if (jsonElement.isObject())
-			result.push_back(transformJsonObjectToRcppList(jsonElement));
-	}
+	Rcpp::List result(json.size());
+	for (Json::ArrayIndex i = 0; i < json.size(); ++i)
+		result[i] = transformJsonValueToSEXP(json[i]);
 
 	return result;
 }
 
 Rcpp::List transformJsonObjectToRcppList(const Json::Value & json)
 {
-	Rcpp::List result;
+	std::vector<std::string> memberNames = json.getMemberNames();
+	Rcpp::List result(memberNames.size());
+	Rcpp::CharacterVector resultNames(memberNames.size());
 
-	for(const std::string & memberName : json.getMemberNames())
+	for (size_t i = 0; i < memberNames.size(); ++i)
 	{
-		if(memberName == ".meta")
-			continue;
-
-		const Json::Value & jsonElement = json[memberName];
-		if (jsonElement.isBool())
-			result[memberName] = jsonElement.asBool();
-		else if (jsonElement.isInt())
-			result[memberName] = jsonElement.asInt();
-		else if (jsonElement.isDouble()) // must be after isInt!
-			result[memberName] = jsonElement.asDouble();
-		else if (jsonElement.isString())
-			result[memberName] = jsonElement.asString();
-		else if (jsonElement.isArray())
-			result[memberName] = transformJsonArrayToRcppList(jsonElement);
-		else if (jsonElement.isObject())
-			result[memberName] = transformJsonObjectToRcppList(jsonElement);
+		result[i] = transformJsonValueToSEXP(json[memberNames[i]]);
+		resultNames[i] = memberNames[i];
 	}
 
+	result.attr("names") = resultNames;
+
 	return result;
+}
+
+SEXP transformJsonValueToSEXP(const Json::Value & json)
+{
+	if (json.isNull())
+		return R_NilValue;
+	else if (json.isBool())
+		return Rcpp::wrap(json.asBool());
+	else if (json.isInt())
+		return Rcpp::wrap(json.asInt());
+	else if (json.isDouble()) // must be after isInt!
+		return Rcpp::wrap(json.asDouble());
+	else if (json.isString())
+		return Rcpp::wrap(json.asString());
+	else if (json.isArray())
+		return Rcpp::wrap(transformJsonArrayToRcppList(json));
+	else if (json.isObject())
+		return Rcpp::wrap(transformJsonObjectToRcppList(json));
+
+	return R_NilValue;
 }
 
 // [[Rcpp::export]]
@@ -229,12 +271,33 @@ Rcpp::List analysisOptionsFromJaspFile(String jaspFilePath, int analysisNr)
 {
 	std::string jaspFilePathStr = jaspFilePath.get_cstring();
 
-	Json::Value parsedOptions = parseBridgeJsonOrStop(
-		callBridgeOrStop("syntaxBridgeAnalysisOptionsFromJaspFile", [&]() {
-			return syntaxBridgeAnalysisOptionsFromJaspFile(jaspFilePathStr.c_str(), analysisNr);
+	Json::Value status = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeAnalysisOptionsFromJaspFileStatus", [&]() {
+			return syntaxBridgeAnalysisOptionsFromJaspFileStatus(jaspFilePathStr.c_str(), analysisNr);
 		}),
-		"syntaxBridgeAnalysisOptionsFromJaspFile"
+		"syntaxBridgeAnalysisOptionsFromJaspFileStatus"
 	);
+	if (!status.isObject())
+		Rcpp::stop("syntaxBridgeAnalysisOptionsFromJaspFileStatus returned a non-object status.");
+	if (!status["ok"].asBool())
+	{
+		std::string error = status.isMember("error") ? status["error"].asString() : "unknown error";
+		Rcpp::stop(
+			"syntaxBridgeAnalysisOptionsFromJaspFile failed for analysis %d in file %s: %s",
+			analysisNr,
+			jaspFilePathStr.c_str(),
+			error
+		);
+	}
+
+	const Json::Value & parsedOptions = status["options"];
+	if (!parsedOptions.isObject())
+		Rcpp::stop(
+			"syntaxBridgeAnalysisOptionsFromJaspFileStatus returned %s instead of a JSON object for analysis %d in file: %s",
+			parsedOptions.isNull() ? "null" : "a non-object value",
+			analysisNr,
+			jaspFilePathStr.c_str()
+		);
 
 	return transformJsonObjectToRcppList(parsedOptions);
 }
@@ -245,7 +308,9 @@ String generateAnalysisWrapper(String modulePath, String analysisName)
 	std::string modulePathStr	= modulePath.get_cstring(),
 				analysisNameStr	= analysisName.get_cstring();
 
-	return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), analysisNameStr.c_str());
+	return callBridgeOrStop("syntaxBridgeGenerateAnalysisWrapper", [&]() {
+		return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), analysisNameStr.c_str());
+	});
 }
 
 // [[Rcpp::export]]

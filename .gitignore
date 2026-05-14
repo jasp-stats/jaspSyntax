@@ -62,4 +62,5 @@ Thumbs.db
 src/Makevars
 src/Makevars.win
 src/syntaxbridge_interface.h
+src/SyntaxInterface.provenance
 src/json/*

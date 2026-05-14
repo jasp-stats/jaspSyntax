@@ -28,13 +28,15 @@ class DataFrameImporter
 {
 
 public:
-	static const SyntaxBridgeDataSet& loadDataFrame(Rcpp::List dataframe);
+	static const SyntaxBridgeDataSet& loadDataFrame(const Rcpp::List& dataframe);
 	static Rcpp::List getVariableNames();
 	static Rcpp::List getVariableValues(Rcpp::String variableName);
 
 private:
 	static SyntaxBridgeDataSet datasetStatic;
 	static void freeDataSet();
+
+	static std::vector<std::string> readFactorVector(Rcpp::IntegerVector obj);
 
 	template<int RTYPE>
 	static std::vector<std::string> readCharacterVector(Rcpp::Vector<RTYPE>	obj);
