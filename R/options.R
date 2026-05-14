@@ -133,6 +133,168 @@
   normalizePath(qmlFile, winslash = "/", mustWork = TRUE)
 }
 
+.moduleDescriptionQmlPath <- function(modulePath) {
+  candidates <- c(
+    file.path(modulePath, "inst", "Description.qml"),
+    file.path(modulePath, "Description.qml")
+  )
+
+  descriptionFile <- candidates[file.exists(candidates)][1L]
+  if (is.na(descriptionFile)) {
+    return(NULL)
+  }
+
+  normalizePath(descriptionFile, winslash = "/", mustWork = TRUE)
+}
+
+.sourceModuleDescription <- function(modulePath, byName = TRUE) {
+  descriptionFile <- .moduleDescriptionQmlPath(modulePath)
+  if (is.null(descriptionFile)) {
+    return(NULL)
+  }
+
+  descriptionText <- paste(readLines(descriptionFile, warn = FALSE), collapse = "\n")
+  packageInfo <- .readSourceModuleDescriptionFile(modulePath)
+  modulePreloadData <- .qmlLogicalProperty(descriptionText, "preloadData", TRUE)
+  moduleHasWrappers <- .qmlLogicalProperty(descriptionText, "hasWrappers", FALSE)
+  analyses <- .qmlAnalysisEntries(descriptionText, modulePreloadData, moduleHasWrappers)
+
+  if (length(analyses) == 0L) {
+    stop("Module description does not contain analyses", call. = FALSE)
+  }
+
+  description <- list(
+    name = .defaultString(packageInfo[["Package"]], basename(modulePath)),
+    title = .qmlStringProperty(descriptionText, "title", .defaultString(packageInfo[["Title"]], "")),
+    author = .defaultString(packageInfo[["Author"]], ""),
+    website = .defaultString(packageInfo[["Website"]], ""),
+    license = .defaultString(packageInfo[["License"]], ""),
+    maintainer = .defaultString(packageInfo[["Maintainer"]], ""),
+    description = .qmlStringProperty(descriptionText, "description", .defaultString(packageInfo[["Description"]], "")),
+    requiresData = .qmlLogicalProperty(descriptionText, "requiresData", TRUE),
+    hasWrappers = moduleHasWrappers,
+    isCommon = FALSE,
+    version = .defaultString(packageInfo[["Version"]], ""),
+    analyses = analyses
+  )
+
+  if (isTRUE(byName)) {
+    names(description[["analyses"]]) <- vapply(
+      description[["analyses"]],
+      function(analysis) .analysisValue(analysis, "name", ""),
+      character(1L)
+    )
+  }
+
+  attr(description, "modulePath") <- modulePath
+  description
+}
+
+.readSourceModuleDescriptionFile <- function(modulePath) {
+  descriptionPath <- file.path(modulePath, "DESCRIPTION")
+  if (!file.exists(descriptionPath)) {
+    return(list())
+  }
+
+  dcf <- tryCatch(
+    read.dcf(descriptionPath),
+    error = function(e) matrix(character(0), nrow = 0L, ncol = 0L)
+  )
+  if (nrow(dcf) == 0L) {
+    return(list())
+  }
+
+  as.list(dcf[1L, , drop = TRUE])
+}
+
+.qmlAnalysisEntries <- function(descriptionText, modulePreloadData, moduleHasWrappers) {
+  blocks <- .qmlBlocks(descriptionText, "Analysis")
+  lapply(blocks, function(block) {
+    name <- .qmlStringProperty(block, "func")
+    if (is.null(name)) {
+      stop("Analysis entry is missing a `func` property", call. = FALSE)
+    }
+
+    list(
+      name = name,
+      qml = .qmlStringProperty(block, "qml", paste0(name, ".qml")),
+      title = .qmlStringProperty(block, "title", .qmlStringProperty(block, "menu", name)),
+      preloadData = .qmlLogicalProperty(block, "preloadData", modulePreloadData),
+      hasWrapper = .qmlLogicalProperty(block, "hasWrapper", moduleHasWrappers)
+    )
+  })
+}
+
+.qmlBlocks <- function(text, blockName) {
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
+  lines <- sub("^\\s*//.*$", "", lines)
+  blocks <- list()
+  inBlock <- FALSE
+  sawOpeningBrace <- FALSE
+  depth <- 0L
+  block <- character(0L)
+  blockPattern <- paste0("^\\s*", blockName, "\\b")
+
+  for (line in lines) {
+    if (!inBlock && grepl(blockPattern, line)) {
+      inBlock <- TRUE
+      sawOpeningBrace <- FALSE
+      depth <- 0L
+      block <- character(0L)
+    }
+
+    if (!inBlock) {
+      next
+    }
+
+    block <- c(block, line)
+    openingBraces <- lengths(regmatches(line, gregexpr("\\{", line)))
+    closingBraces <- lengths(regmatches(line, gregexpr("\\}", line)))
+    sawOpeningBrace <- sawOpeningBrace || openingBraces > 0L
+    depth <- depth + openingBraces - closingBraces
+
+    if (sawOpeningBrace && depth <= 0L) {
+      blocks[[length(blocks) + 1L]] <- paste(block, collapse = "\n")
+      inBlock <- FALSE
+    }
+  }
+
+  blocks
+}
+
+.qmlStringProperty <- function(text, property, default = NULL) {
+  pattern <- paste0(
+    "(?m)^\\s*", property, "\\s*:\\s*",
+    "(?:qsTr\\s*\\(\\s*)?\"([^\"]*)\""
+  )
+  match <- regexec(pattern, text, perl = TRUE)
+  value <- regmatches(text, match)[[1L]]
+  if (length(value) < 2L) {
+    return(default)
+  }
+
+  value[[2L]]
+}
+
+.qmlLogicalProperty <- function(text, property, default = NULL) {
+  pattern <- paste0("(?m)^\\s*", property, "\\s*:\\s*(true|false)\\b")
+  match <- regexec(pattern, text, perl = TRUE)
+  value <- regmatches(text, match)[[1L]]
+  if (length(value) < 2L) {
+    return(default)
+  }
+
+  identical(value[[2L]], "true")
+}
+
+.defaultString <- function(x, y) {
+  if (is.null(x) || length(x) == 0L || is.na(x[[1L]]) || !nzchar(x[[1L]])) {
+    return(y)
+  }
+
+  as.character(x[[1L]])
+}
+
 .analysisValue <- function(analysis, name, default = NULL) {
   value <- analysis[[name]]
   if (is.null(value) || length(value) == 0L || is.na(value)) {
@@ -214,7 +376,9 @@
 
 #' Read a JASP Module Description
 #'
-#' Reads a module's `Description.qml` through the native SyntaxInterface bridge.
+#' Reads a module's `Description.qml` metadata. Source checkouts are resolved
+#' directly from `Description.qml`/`DESCRIPTION`; installed or binary modules
+#' fall back to the native SyntaxInterface bridge.
 #'
 #' @param modulePath Path to a JASP module source directory or its
 #'   `inst/Description.qml` file.
@@ -225,6 +389,12 @@
 #' @export
 parseModuleDescription <- function(modulePath, byName = TRUE) {
   modulePath <- .validateModulePath(modulePath)
+
+  description <- .sourceModuleDescription(modulePath, byName = byName)
+  if (!is.null(description)) {
+    return(description)
+  }
+
   description <- parseDescription(modulePath)
 
   if (!is.list(description) || is.null(names(description))) {

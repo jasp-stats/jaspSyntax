@@ -2,12 +2,12 @@ context("module options")
 
 fixtureModule <- testthat::test_path("fixtures", "minimalModule")
 
-test_that("readModuleDescription returns native module metadata", {
+test_that("readModuleDescription returns module metadata", {
   desc <- jaspSyntax::readModuleDescription(fixtureModule)
 
   expect_equal(desc$name, "jaspSyntaxTestModule")
   expect_equal(desc$title, "Syntax Test Module")
-  expect_equal(desc$version, "0.1")
+  expect_equal(desc$version, "0.1.0")
   expect_length(desc$analyses, 3)
   expect_equal(names(desc$analyses), c("DefaultAnalysis", "MinimalAnalysis", "VariableAnalysis"))
   expect_equal(desc$analyses$DefaultAnalysis$qml, "DefaultAnalysis.qml")

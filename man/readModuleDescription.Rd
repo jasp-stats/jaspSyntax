@@ -16,5 +16,7 @@ readModuleDescription(modulePath, byName = TRUE)
 A list with module metadata and an \code{analyses} list.
 }
 \description{
-Reads a module's \code{Description.qml} through the native SyntaxInterface bridge.
+Reads a module's \code{Description.qml} metadata. Source checkouts are resolved
+directly from \code{Description.qml}/\code{DESCRIPTION}; installed or binary modules
+fall back to the native SyntaxInterface bridge.
 }

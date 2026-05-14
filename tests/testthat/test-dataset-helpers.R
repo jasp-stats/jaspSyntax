@@ -451,6 +451,77 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
   expect_s3_class(state, "jaspSyntax_analysis_dataset_state")
 })
 
+test_that("loadAnalysisDataset reuses native .jasp source when provenance is intact", {
+  modulePath <- tempfile("jaspSyntaxDatasetModule_")
+  dir.create(modulePath)
+  jaspFile <- tempfile(fileext = ".jasp")
+  file.create(jaspFile)
+
+  loadedJaspFile <- NULL
+  loadedDataFrame <- FALSE
+
+  restoreClear <- localNamespaceBinding(
+    "clearDatasetState",
+    function() invisible(NULL),
+    asNamespace("jaspSyntax")
+  )
+  restoreLoadDataFrame <- localNamespaceBinding(
+    "loadDataSet",
+    function(data) {
+      loadedDataFrame <<- TRUE
+      invisible(NULL)
+    },
+    asNamespace("jaspSyntax")
+  )
+  restoreLoadJaspFile <- localNamespaceBinding(
+    "loadDataSetFromJaspFile",
+    function(path) {
+      loadedJaspFile <<- path
+      invisible(NULL)
+    },
+    asNamespace("jaspSyntax")
+  )
+  restoreReadQml <- localNamespaceBinding(
+    "readAnalysisOptionsFromQml",
+    function(...) list(variables = "JaspColumn_1_Encoded"),
+    asNamespace("jaspSyntax")
+  )
+  restoreLoaded <- localGlobalBinding(
+    ".readFullDatasetToEnd",
+    function() data.frame(JaspColumn_1_Encoded = 1, check.names = FALSE)
+  )
+  restoreRequested <- localGlobalBinding(
+    ".readDataSetRequestedNative",
+    function() data.frame(JaspColumn_1_Encoded = 1, check.names = FALSE)
+  )
+  restoreDecoder <- localGlobalBinding(
+    ".decodeColNamesStrict",
+    function(columnName) c(JaspColumn_1_Encoded = "score")[[columnName]]
+  )
+  on.exit(restoreClear(), add = TRUE)
+  on.exit(restoreLoadDataFrame(), add = TRUE)
+  on.exit(restoreLoadJaspFile(), add = TRUE)
+  on.exit(restoreReadQml(), add = TRUE)
+  on.exit(restoreLoaded(), add = TRUE)
+  on.exit(restoreRequested(), add = TRUE)
+  on.exit(restoreDecoder(), add = TRUE)
+
+  dataset <- jaspSyntax:::.attachJaspDatasetSource(
+    data.frame(score = 1),
+    jaspFile,
+    1L
+  )
+
+  jaspSyntax::loadAnalysisDataset(
+    dataset,
+    modulePath = modulePath,
+    analysisName = "ExampleAnalysis"
+  )
+
+  expect_equal(loadedJaspFile, normalizePath(jaspFile, winslash = "/", mustWork = FALSE))
+  expect_false(loadedDataFrame)
+})
+
 test_that("loadAnalysisDataset clears native state when loading fails", {
   modulePath <- tempfile("jaspSyntaxDatasetModule_")
   dir.create(modulePath)
@@ -659,7 +730,16 @@ test_that("readDatasetFromJaspFile dispatches through the shared bridge subproce
 
   dataset <- jaspSyntax::readDatasetFromJaspFile(jaspFile)
 
-  expect_equal(dataset, data.frame(x = 1))
+  expect_s3_class(dataset, "data.frame")
+  expect_equal(names(dataset), "x")
+  expect_equal(dataset$x, 1)
+  expect_equal(
+    attr(dataset, "jaspSyntax.jaspFilePath"),
+    normalizePath(jaspFile, winslash = "/", mustWork = FALSE)
+  )
+  expect_equal(attr(dataset, "jaspSyntax.dataSetIndex"), 1L)
+  expect_equal(attr(dataset, "jaspSyntax.jaspFileDim"), c(1L, 1L))
+  expect_equal(attr(dataset, "jaspSyntax.jaspFileNames"), "x")
   expect_equal(runnerCall$task, "read_dataset")
   expect_equal(runnerCall$target, ".readDatasetFromJaspFileInProcess")
   expect_equal(runnerCall$input$jaspFilePath, jaspFile)

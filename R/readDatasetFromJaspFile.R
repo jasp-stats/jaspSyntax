@@ -46,7 +46,58 @@
     return(NULL)
   }
 
+  .attachJaspDatasetSource(dataset, jaspFilePath, dataSetIndex)
+}
+
+.attachJaspDatasetSource <- function(dataset, jaspFilePath, dataSetIndex) {
+  if (!is.data.frame(dataset)) {
+    return(dataset)
+  }
+
+  attr(dataset, "jaspSyntax.jaspFilePath") <- normalizePath(jaspFilePath, winslash = "/", mustWork = FALSE)
+  attr(dataset, "jaspSyntax.dataSetIndex") <- as.integer(dataSetIndex)
+  attr(dataset, "jaspSyntax.jaspFileDim") <- dim(dataset)
+  attr(dataset, "jaspSyntax.jaspFileNames") <- names(dataset)
   dataset
+}
+
+.jaspDatasetSource <- function(dataset) {
+  jaspFilePath <- attr(dataset, "jaspSyntax.jaspFilePath", exact = TRUE)
+  dataSetIndex <- attr(dataset, "jaspSyntax.dataSetIndex", exact = TRUE)
+  jaspFileDim <- attr(dataset, "jaspSyntax.jaspFileDim", exact = TRUE)
+  jaspFileNames <- attr(dataset, "jaspSyntax.jaspFileNames", exact = TRUE)
+
+  if (is.null(jaspFilePath) || is.null(dataSetIndex) ||
+      is.null(jaspFileDim) || is.null(jaspFileNames)) {
+    return(NULL)
+  }
+
+  if (!is.character(jaspFilePath) || length(jaspFilePath) != 1L ||
+      is.na(jaspFilePath) || !file.exists(jaspFilePath)) {
+    return(NULL)
+  }
+
+  if (!identical(as.integer(dataSetIndex), 1L) ||
+      !identical(as.integer(dim(dataset)), as.integer(jaspFileDim)) ||
+      !identical(names(dataset), jaspFileNames)) {
+    return(NULL)
+  }
+
+  list(
+    jaspFilePath = jaspFilePath,
+    dataSetIndex = as.integer(dataSetIndex)
+  )
+}
+
+.loadDatasetForAnalysis <- function(dataset) {
+  source <- .jaspDatasetSource(dataset)
+  if (!is.null(source)) {
+    loadDataSetFromJaspFile(source$jaspFilePath)
+    return(invisible(source))
+  }
+
+  loadDataSet(dataset)
+  invisible(NULL)
 }
 
 .normalizeBridgeColumn <- function(column) {
@@ -281,7 +332,7 @@ loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NUL
     }
   }, add = TRUE)
 
-  loadDataSet(dataset)
+  .loadDatasetForAnalysis(dataset)
   runtimeOptions <- readAnalysisOptionsFromQml(
     modulePath = modulePath,
     analysisName = analysisName,
@@ -340,10 +391,11 @@ loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NUL
 
 readDatasetFromJaspFile <- function(jaspFilePath, dataSetIndex = 1L) {
   args <- .validateReadDatasetFromJaspFileArgs(jaspFilePath, dataSetIndex)
-  .runReadDatasetSubprocess(
+  dataset <- .runReadDatasetSubprocess(
     args$jaspFilePath,
     args$dataSetIndex,
     decode = TRUE,
     normalize = TRUE
   )
+  .attachJaspDatasetSource(dataset, args$jaspFilePath, args$dataSetIndex)
 }
