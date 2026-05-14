@@ -142,7 +142,7 @@ jobs:
 
       - name: Install aqtinstall
         if: steps.cache-qt.outputs.cache-hit != 'true'
-        run: pip3 install aqtinstall
+        run: pip3 install --break-system-packages aqtinstall
 
       - name: Download Qt source
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -229,6 +229,8 @@ jobs:
           cmake -G Ninja -S jasp-desktop -B build ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_PREFIX_PATH=${{ github.workspace }}\qt-static ^
+            -DREQUIRE_GITHUB_PAT=OFF ^
+            -DJASP_SYNTAX_INTERFACE_ONLY=ON ^
             -DINSTALL_R_MODULES=OFF ^
             -DBUILD_TESTS=OFF
 
