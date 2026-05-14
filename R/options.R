@@ -226,36 +226,27 @@
 }
 
 .qmlBlocks <- function(text, blockName) {
-  lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
-  lines <- sub("^\\s*//.*$", "", lines)
+  maskedText <- .qmlMaskNonCode(text)
   blocks <- list()
-  inBlock <- FALSE
-  sawOpeningBrace <- FALSE
-  depth <- 0L
-  block <- character(0L)
-  blockPattern <- paste0("^\\s*", blockName, "\\b")
 
-  for (line in lines) {
-    if (!inBlock && grepl(blockPattern, line)) {
-      inBlock <- TRUE
-      sawOpeningBrace <- FALSE
-      depth <- 0L
-      block <- character(0L)
-    }
+  blockPattern <- paste0("\\b", blockName, "\\b\\s*\\{")
+  starts <- gregexpr(blockPattern, maskedText, perl = TRUE)[[1L]]
+  if (identical(starts, -1L)) {
+    return(blocks)
+  }
 
-    if (!inBlock) {
+  matchLengths <- attr(starts, "match.length")
+  for (i in seq_along(starts)) {
+    matchedText <- substring(maskedText, starts[[i]], starts[[i]] + matchLengths[[i]] - 1L)
+    openingOffset <- regexpr("\\{", matchedText, perl = TRUE)[[1L]]
+    if (openingOffset < 0L) {
       next
     }
 
-    block <- c(block, line)
-    openingBraces <- lengths(regmatches(line, gregexpr("\\{", line)))
-    closingBraces <- lengths(regmatches(line, gregexpr("\\}", line)))
-    sawOpeningBrace <- sawOpeningBrace || openingBraces > 0L
-    depth <- depth + openingBraces - closingBraces
-
-    if (sawOpeningBrace && depth <= 0L) {
-      blocks[[length(blocks) + 1L]] <- paste(block, collapse = "\n")
-      inBlock <- FALSE
+    openingBrace <- starts[[i]] + openingOffset - 1L
+    closingBrace <- .qmlMatchingBrace(maskedText, openingBrace)
+    if (!is.na(closingBrace)) {
+      blocks[[length(blocks) + 1L]] <- substring(text, starts[[i]], closingBrace)
     }
   }
 
@@ -263,9 +254,10 @@
 }
 
 .qmlStringProperty <- function(text, property, default = NULL) {
+  text <- .qmlMaskComments(text)
   pattern <- paste0(
-    "(?m)^\\s*", property, "\\s*:\\s*",
-    "(?:qsTr\\s*\\(\\s*)?\"([^\"]*)\""
+    "(?s)(?:^|[\\{;\\n])\\s*", property, "\\s*:\\s*",
+    "(?:qsTr\\s*\\(\\s*)?\"((?:[^\"\\\\]|\\\\.)*)\""
   )
   match <- regexec(pattern, text, perl = TRUE)
   value <- regmatches(text, match)[[1L]]
@@ -273,11 +265,12 @@
     return(default)
   }
 
-  value[[2L]]
+  .qmlUnescapeString(value[[2L]])
 }
 
 .qmlLogicalProperty <- function(text, property, default = NULL) {
-  pattern <- paste0("(?m)^\\s*", property, "\\s*:\\s*(true|false)\\b")
+  text <- .qmlMaskComments(text)
+  pattern <- paste0("(?s)(?:^|[\\{;\\n])\\s*", property, "\\s*:\\s*(true|false)\\b")
   match <- regexec(pattern, text, perl = TRUE)
   value <- regmatches(text, match)[[1L]]
   if (length(value) < 2L) {
@@ -285,6 +278,138 @@
   }
 
   identical(value[[2L]], "true")
+}
+
+.qmlMatchingBrace <- function(text, openingBrace) {
+  chars <- strsplit(text, "", fixed = TRUE)[[1L]]
+  depth <- 0L
+
+  for (i in seq.int(openingBrace, length(chars))) {
+    if (identical(chars[[i]], "{")) {
+      depth <- depth + 1L
+    } else if (identical(chars[[i]], "}")) {
+      depth <- depth - 1L
+      if (depth == 0L) {
+        return(i)
+      }
+    }
+  }
+
+  NA_integer_
+}
+
+.qmlMaskComments <- function(text) {
+  chars <- strsplit(text, "", fixed = TRUE)[[1L]]
+  out <- chars
+  inString <- FALSE
+  quote <- ""
+  escaped <- FALSE
+  inLineComment <- FALSE
+  inBlockComment <- FALSE
+  i <- 1L
+
+  while (i <= length(chars)) {
+    ch <- chars[[i]]
+    nextCh <- if (i < length(chars)) chars[[i + 1L]] else ""
+
+    if (inLineComment) {
+      if (identical(ch, "\n")) {
+        inLineComment <- FALSE
+      } else {
+        out[[i]] <- " "
+      }
+      i <- i + 1L
+      next
+    }
+
+    if (inBlockComment) {
+      out[[i]] <- if (identical(ch, "\n")) "\n" else " "
+      if (identical(ch, "*") && identical(nextCh, "/")) {
+        out[[i + 1L]] <- " "
+        inBlockComment <- FALSE
+        i <- i + 2L
+      } else {
+        i <- i + 1L
+      }
+      next
+    }
+
+    if (inString) {
+      if (escaped) {
+        escaped <- FALSE
+      } else if (identical(ch, "\\")) {
+        escaped <- TRUE
+      } else if (identical(ch, quote)) {
+        inString <- FALSE
+      }
+      i <- i + 1L
+      next
+    }
+
+    if (identical(ch, "\"") || identical(ch, "'")) {
+      inString <- TRUE
+      quote <- ch
+      i <- i + 1L
+      next
+    }
+
+    if (identical(ch, "/") && identical(nextCh, "/")) {
+      out[[i]] <- " "
+      out[[i + 1L]] <- " "
+      inLineComment <- TRUE
+      i <- i + 2L
+      next
+    }
+
+    if (identical(ch, "/") && identical(nextCh, "*")) {
+      out[[i]] <- " "
+      out[[i + 1L]] <- " "
+      inBlockComment <- TRUE
+      i <- i + 2L
+      next
+    }
+
+    i <- i + 1L
+  }
+
+  paste(out, collapse = "")
+}
+
+.qmlMaskNonCode <- function(text) {
+  text <- .qmlMaskComments(text)
+  chars <- strsplit(text, "", fixed = TRUE)[[1L]]
+  out <- chars
+  inString <- FALSE
+  quote <- ""
+  escaped <- FALSE
+
+  for (i in seq_along(chars)) {
+    ch <- chars[[i]]
+
+    if (inString) {
+      out[[i]] <- if (identical(ch, "\n")) "\n" else " "
+      if (escaped) {
+        escaped <- FALSE
+      } else if (identical(ch, "\\")) {
+        escaped <- TRUE
+      } else if (identical(ch, quote)) {
+        inString <- FALSE
+      }
+      next
+    }
+
+    if (identical(ch, "\"") || identical(ch, "'")) {
+      out[[i]] <- " "
+      inString <- TRUE
+      quote <- ch
+    }
+  }
+
+  paste(out, collapse = "")
+}
+
+.qmlUnescapeString <- function(x) {
+  gsub("\\\\([\"\\\\])", "\\1", x, perl = TRUE)
 }
 
 .defaultString <- function(x, y) {

@@ -34,7 +34,7 @@
     "    dllDirs <- c(file.path(packagePath, 'src'), file.path(packagePath, 'libs', R.version$arch), file.path(packagePath, 'libs'))",
     "    dllDirs <- dllDirs[dir.exists(dllDirs)]",
     "    if (.Platform$OS.type == 'windows' && length(dllDirs) > 0L) {",
-    "      Sys.setenv(PATH = paste(c(dllDirs, Sys.getenv('PATH')), collapse = .Platform$path.sep))",
+    "      Sys.setenv(PATH = paste(c(Sys.getenv('PATH'), dllDirs), collapse = .Platform$path.sep))",
     "    }",
     "    if (!requireNamespace('pkgload', quietly = TRUE)) {",
     "      stop('pkgload is required to load source-checkout jaspSyntax in a subprocess')",

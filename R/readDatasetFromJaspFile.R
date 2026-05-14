@@ -58,6 +58,8 @@
   attr(dataset, "jaspSyntax.dataSetIndex") <- as.integer(dataSetIndex)
   attr(dataset, "jaspSyntax.jaspFileDim") <- dim(dataset)
   attr(dataset, "jaspSyntax.jaspFileNames") <- names(dataset)
+  attr(dataset, "jaspSyntax.jaspFileSignature") <- .jaspFileSignature(jaspFilePath)
+  attr(dataset, "jaspSyntax.jaspFileDataHash") <- .datasetHash(dataset)
   dataset
 }
 
@@ -66,9 +68,12 @@
   dataSetIndex <- attr(dataset, "jaspSyntax.dataSetIndex", exact = TRUE)
   jaspFileDim <- attr(dataset, "jaspSyntax.jaspFileDim", exact = TRUE)
   jaspFileNames <- attr(dataset, "jaspSyntax.jaspFileNames", exact = TRUE)
+  jaspFileSignature <- attr(dataset, "jaspSyntax.jaspFileSignature", exact = TRUE)
+  jaspFileDataHash <- attr(dataset, "jaspSyntax.jaspFileDataHash", exact = TRUE)
 
   if (is.null(jaspFilePath) || is.null(dataSetIndex) ||
-      is.null(jaspFileDim) || is.null(jaspFileNames)) {
+      is.null(jaspFileDim) || is.null(jaspFileNames) ||
+      is.null(jaspFileSignature) || is.null(jaspFileDataHash)) {
     return(NULL)
   }
 
@@ -83,9 +88,52 @@
     return(NULL)
   }
 
+  if (!identical(.jaspFileSignature(jaspFilePath), jaspFileSignature) ||
+      !identical(.datasetHash(dataset), jaspFileDataHash)) {
+    return(NULL)
+  }
+
   list(
     jaspFilePath = jaspFilePath,
     dataSetIndex = as.integer(dataSetIndex)
+  )
+}
+
+.jaspDatasetSourceAttrs <- c(
+  "jaspSyntax.jaspFilePath",
+  "jaspSyntax.dataSetIndex",
+  "jaspSyntax.jaspFileDim",
+  "jaspSyntax.jaspFileNames",
+  "jaspSyntax.jaspFileSignature",
+  "jaspSyntax.jaspFileDataHash"
+)
+
+.stripJaspDatasetSourceAttrs <- function(dataset) {
+  for (attrName in .jaspDatasetSourceAttrs) {
+    attr(dataset, attrName) <- NULL
+  }
+  dataset
+}
+
+.datasetHash <- function(dataset) {
+  dataset <- .stripJaspDatasetSourceAttrs(dataset)
+  tempFile <- tempfile("jaspSyntax-dataset-", fileext = ".rds")
+  on.exit(unlink(tempFile, force = TRUE), add = TRUE)
+  saveRDS(dataset, tempFile, version = 2)
+  unname(tools::md5sum(tempFile))
+}
+
+.jaspFileSignature <- function(jaspFilePath) {
+  jaspFilePath <- normalizePath(jaspFilePath, winslash = "/", mustWork = FALSE)
+  fileInfo <- file.info(jaspFilePath)
+  if (nrow(fileInfo) != 1L || is.na(fileInfo$size)) {
+    return(NULL)
+  }
+
+  list(
+    path = jaspFilePath,
+    size = as.numeric(fileInfo$size),
+    mtime = as.numeric(fileInfo$mtime)
   )
 }
 
@@ -154,8 +202,8 @@
 #' return names unchanged so callers can still operate on non-encoded inputs.
 #'
 #' @param columnNames Character vector of column names.
-#' @param strict Whether to fail when the native decoder is unavailable or a
-#'   name cannot be decoded.
+#' @param strict Whether to fail when an encoded bridge name cannot be decoded.
+#'   Raw/non-encoded names are returned unchanged.
 #'
 #' @return A character vector with decoded names.
 #'
@@ -166,6 +214,11 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
   }
 
   strict <- .validateFlag(strict, "strict")
+  encoded <- .isEncodedBridgeColumnName(columnNames)
+  if (!any(encoded)) {
+    return(columnNames)
+  }
+
   decodeName <- get0(".decodeColNamesStrict", envir = .GlobalEnv, inherits = FALSE)
   if (!is.function(decodeName)) {
     if (strict) {
@@ -177,7 +230,8 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
     return(columnNames)
   }
 
-  vapply(columnNames, function(columnName) {
+  decodedNames <- columnNames
+  decodedNames[encoded] <- vapply(columnNames[encoded], function(columnName) {
     tryCatch(
       {
         decoded <- as.character(decodeName(columnName))
@@ -198,6 +252,12 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
       }
     )
   }, character(1L), USE.NAMES = FALSE)
+  decodedNames
+}
+
+.isEncodedBridgeColumnName <- function(columnNames) {
+  grepl("^JaspColumn_[[:alnum:]_]+_Encoded$", columnNames) |
+    grepl("^jaspColumn[0-9]+$", columnNames)
 }
 
 #' @rdname decodeColumnNames

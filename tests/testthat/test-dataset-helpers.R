@@ -95,6 +95,33 @@ test_that("decodeColumnNames can fall back or fail when the decoder is unavailab
   )
 })
 
+test_that("decodeColumnNames does not send raw names to the strict native decoder", {
+  decoderCalls <- character(0)
+  restoreDecoder <- localGlobalBinding(
+    ".decodeColNamesStrict",
+    function(columnName) {
+      decoderCalls <<- c(decoderCalls, columnName)
+      c(JaspColumn_1_Encoded = "score")[[columnName]]
+    }
+  )
+  on.exit(restoreDecoder(), add = TRUE)
+
+  expect_equal(
+    jaspSyntax::decodeColumnNames(
+      c("score", "score.scale", "JaspColumn_1_Encoded"),
+      strict = TRUE
+    ),
+    c("score", "score.scale", "score")
+  )
+  expect_equal(decoderCalls, "JaspColumn_1_Encoded")
+
+  restoreDecoder()
+  expect_equal(
+    jaspSyntax::decodeColumnNames(c("score", "score.scale"), strict = TRUE),
+    c("score", "score.scale")
+  )
+})
+
 test_that("state readers fail loudly when decode is requested without decoder support", {
   restoreDecoder <- localGlobalAbsent(".decodeColNamesStrict")
   restoreLoaded <- localGlobalBinding(
@@ -522,6 +549,28 @@ test_that("loadAnalysisDataset reuses native .jasp source when provenance is int
   expect_false(loadedDataFrame)
 })
 
+test_that("JASP dataset provenance is invalidated by data or archive changes", {
+  jaspFile <- tempfile(fileext = ".jasp")
+  writeLines("archive-v1", jaspFile)
+
+  dataset <- jaspSyntax:::.attachJaspDatasetSource(
+    data.frame(score = c(1, 2), group = c("a", "b")),
+    jaspFile,
+    1L
+  )
+
+  expect_false(is.null(jaspSyntax:::.jaspDatasetSource(dataset)))
+  expect_false(is.null(attr(dataset, "jaspSyntax.jaspFileSignature", exact = TRUE)))
+  expect_false(is.null(attr(dataset, "jaspSyntax.jaspFileDataHash", exact = TRUE)))
+
+  changedValues <- dataset
+  changedValues$score <- c(2, 1)
+  expect_null(jaspSyntax:::.jaspDatasetSource(changedValues))
+
+  writeLines(c("archive-v2", "changed"), jaspFile)
+  expect_null(jaspSyntax:::.jaspDatasetSource(dataset))
+})
+
 test_that("loadAnalysisDataset clears native state when loading fails", {
   modulePath <- tempfile("jaspSyntaxDatasetModule_")
   dir.create(modulePath)
@@ -628,6 +677,11 @@ test_that("subprocess package loading distinguishes source checkouts from instal
   expect_match(
     paste(jaspSyntax:::.bridgeSubprocessPackageLoaderScript(), collapse = "\n"),
     "pkgload::load_all",
+    fixed = TRUE
+  )
+  expect_match(
+    paste(jaspSyntax:::.bridgeSubprocessPackageLoaderScript(), collapse = "\n"),
+    "c(Sys.getenv('PATH'), dllDirs)",
     fixed = TRUE
   )
 

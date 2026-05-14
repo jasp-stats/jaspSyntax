@@ -47,7 +47,7 @@ columnMapping(encodedColumnNames = NULL, strict = FALSE)
 
 \item{columnNames}{Character vector of column names.}
 
-\item{strict}{Whether to fail when the native decoder is unavailable or a name cannot be decoded.}
+\item{strict}{Whether to fail when an encoded bridge name cannot be decoded. Raw/non-encoded names are returned unchanged.}
 
 \item{encodedColumnNames}{Optional encoded column names. When omitted, the current native dataset header is used.}
 }

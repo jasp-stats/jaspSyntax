@@ -16,6 +16,50 @@ test_that("readModuleDescription returns module metadata", {
   expect_false(desc$analyses$MinimalAnalysis$preloadData)
 })
 
+test_that("readModuleDescription handles one-line analysis entries", {
+  modulePath <- tempfile("jaspSyntaxInlineModule_")
+  dir.create(file.path(modulePath, "inst"), recursive = TRUE)
+  on.exit(unlink(modulePath, recursive = TRUE), add = TRUE)
+  writeLines(
+    c(
+      "Package: jaspSyntaxInlineModule",
+      "Type: Package",
+      "Title: Inline Module",
+      "Version: 0.1.0",
+      "Description: Inline analysis fixture.",
+      "License: GPL (>= 2)"
+    ),
+    file.path(modulePath, "DESCRIPTION")
+  )
+  writeLines(
+    c(
+      "import QtQuick",
+      "import JASP.Module",
+      "",
+      "Description {",
+      "  title: qsTr(\"Inline Module\")",
+      "  preloadData: false",
+      "  hasWrappers: true",
+      "  // Analysis { func: \"CommentedOut\" }",
+      "  Analysis { title: qsTr(\"ANOVA\"); func: \"Anova\" }",
+      "  Analysis { title: qsTr(\"Custom\"); func: \"CustomAnalysis\"; qml: \"CustomForm.qml\"; preloadData: true; hasWrapper: false }",
+      "}"
+    ),
+    file.path(modulePath, "inst", "Description.qml")
+  )
+
+  desc <- jaspSyntax::readModuleDescription(modulePath)
+
+  expect_equal(names(desc$analyses), c("Anova", "CustomAnalysis"))
+  expect_equal(desc$analyses$Anova$title, "ANOVA")
+  expect_equal(desc$analyses$Anova$qml, "Anova.qml")
+  expect_false(desc$analyses$Anova$preloadData)
+  expect_true(desc$analyses$Anova$hasWrapper)
+  expect_equal(desc$analyses$CustomAnalysis$qml, "CustomForm.qml")
+  expect_true(desc$analyses$CustomAnalysis$preloadData)
+  expect_false(desc$analyses$CustomAnalysis$hasWrapper)
+})
+
 test_that("parseModuleDescription accepts Description.qml paths", {
   descPath <- testthat::test_path("fixtures", "minimalModule", "inst", "Description.qml")
   desc <- jaspSyntax::parseModuleDescription(descPath)
