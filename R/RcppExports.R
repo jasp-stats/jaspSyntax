@@ -5,6 +5,10 @@ cleanUp <- function() {
     invisible(.Call(`_jaspSyntax_cleanUp`))
 }
 
+shutdownNative <- function() {
+    invisible(.Call(`_jaspSyntax_shutdownNative`))
+}
+
 clearQmlFormsNative <- function() {
     invisible(.Call(`_jaspSyntax_clearQmlFormsNative`))
 }

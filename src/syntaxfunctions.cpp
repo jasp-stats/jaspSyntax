@@ -69,6 +69,14 @@ void cleanUp()
 }
 
 // [[Rcpp::export]]
+void shutdownNative()
+{
+	callBridgeOrStop("syntaxBridgeShutdown", []() {
+		syntaxBridgeShutdown();
+	});
+}
+
+// [[Rcpp::export]]
 void clearQmlFormsNative()
 {
 	callBridgeOrStop("syntaxBridgeClearQmlState", []() {

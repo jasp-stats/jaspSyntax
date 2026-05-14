@@ -19,6 +19,15 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// shutdownNative
+void shutdownNative();
+RcppExport SEXP _jaspSyntax_shutdownNative() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    shutdownNative();
+    return R_NilValue;
+END_RCPP
+}
 // clearQmlFormsNative
 void clearQmlFormsNative();
 RcppExport SEXP _jaspSyntax_clearQmlFormsNative() {
@@ -153,6 +162,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_cleanUp", (DL_FUNC) &_jaspSyntax_cleanUp, 0},
+    {"_jaspSyntax_shutdownNative", (DL_FUNC) &_jaspSyntax_shutdownNative, 0},
     {"_jaspSyntax_clearQmlFormsNative", (DL_FUNC) &_jaspSyntax_clearQmlFormsNative, 0},
     {"_jaspSyntax_clearDatasetStateNative", (DL_FUNC) &_jaspSyntax_clearDatasetStateNative, 0},
     {"_jaspSyntax_clearNativeStateNative", (DL_FUNC) &_jaspSyntax_clearNativeStateNative, 0},

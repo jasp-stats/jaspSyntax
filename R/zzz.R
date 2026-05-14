@@ -29,6 +29,11 @@
 }
 
 .onLoad <- function(libname, pkgname) {
+  namespace <- asNamespace(pkgname)
+  reg.finalizer(namespace, function(e) {
+    try(get("shutdownNative", envir = e)(), silent = TRUE)
+  }, onexit = TRUE)
+
   rArch <- sub("^/", "", .Platform$r_arch)
   namespacePath <- getNamespaceInfo(pkgname, "path")
   packageLibRoot <- file.path(libname, pkgname, "libs", rArch)
@@ -81,4 +86,8 @@
     Sys.setenv(QML2_IMPORT_PATH = qmlPaths)
     Sys.setenv(QML_IMPORT_PATH = qmlPaths)
   }
+}
+
+.onUnload <- function(libpath) {
+  try(shutdownNative(), silent = TRUE)
 }
