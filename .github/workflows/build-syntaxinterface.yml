@@ -18,6 +18,10 @@ on:
         description: 'Release tag to upload assets to'
         required: false
         default: 'syntaxinterface-libs'
+      os_filter:
+        description: 'Limit build to one runner (e.g. macos-15, windows-latest, ubuntu-latest, ubuntu-24.04-arm, macos-15-intel). Leave empty to build all.'
+        required: false
+        default: ''
 #  schedule:
 #    - cron: '0 6 1,15 * *'   # 1st and 15th of each month at 06:00 UTC
 
@@ -64,6 +68,7 @@ jobs:
         # the runners are based on https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
         # this may need to be updated over time
 
+    if: ${{ github.event.inputs.os_filter == '' || github.event.inputs.os_filter == matrix.os }}
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }} (${{ matrix.arch }})
 
@@ -312,6 +317,7 @@ jobs:
   # ---------------------------------------------------------------------------
   release:
     needs: build
+    if: ${{ github.event.inputs.os_filter == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
