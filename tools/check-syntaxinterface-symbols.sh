@@ -92,6 +92,11 @@ function write_exports() {
 				*.dll|*.DLL)
 					"${TOOL_PATH}" -p "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1
 					;;
+				*.dylib)
+					# macOS's objdump exits 0 for -T on Mach-O but emits only a
+					# warning with no symbol data. Use nm -g instead.
+					nm -g "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1
+					;;
 				*)
 					"${TOOL_PATH}" -T "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1 ||
 						"${TOOL_PATH}" -t "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1
