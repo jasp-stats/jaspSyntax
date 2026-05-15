@@ -1053,7 +1053,7 @@ readDefaultAnalysisOptions <- function(modulePath, analysisName, fresh = TRUE,
   on.exit(clearNativeState(), add = TRUE)
 
   if (is.data.frame(dataset)) {
-    loadDataSet(dataset)
+    .loadDatasetForAnalysis(dataset)
   }
 
   recordNames <- names(records)

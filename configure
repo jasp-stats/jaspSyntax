@@ -10,7 +10,9 @@ set -e
 # Pre-built binaries are hosted as GitHub Release assets.
 # The build-syntaxinterface.yml workflow produces these.
 GITHUB_RELEASE_TAG="${JASPSYNTAX_RELEASE_TAG:-syntaxinterface-libs}"
-GITHUB_RELEASE_URL="https://github.com/jasp-stats/jaspSyntax/releases/download/${GITHUB_RELEASE_TAG}"
+GITHUB_RELEASE_REPO="${JASPSYNTAX_RELEASE_REPO:-jasp-stats/jaspSyntax}"
+GITHUB_RELEASE_URL="https://github.com/${GITHUB_RELEASE_REPO}/releases/download/${GITHUB_RELEASE_TAG}"
+SOURCE_BUNDLE_ASSET="SyntaxInterface-sources.tar.gz"
 
 
 function downloadFile() {
@@ -50,6 +52,35 @@ Normally this is downloaded automatically if either curl or wget is available, b
 Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually and specify the path through configure.args: options(configure.vars = c(jaspSyntax = \"JASP_SOURCE_DIR='<path>'\"))\n" "$2"
 		exit 1
 	fi
+}
+
+function loadReleaseSourceBundle() {
+	local ARCHIVE_PATH="src/${SOURCE_BUNDLE_ASSET}"
+	local EXTRACT_DIR="src/.SyntaxInterface-sources"
+	local FILE_NAME
+
+	if ! downloadFile "${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}" "${ARCHIVE_PATH}"; then
+		printf "Installing jaspSyntax failed because the SyntaxInterface source bundle is missing from release %s.\n\
+Set JASP_SOURCE_DIR to a matching jasp-desktop checkout, or publish %s together with the SyntaxInterface binaries.\n" "${GITHUB_RELEASE_TAG}" "${SOURCE_BUNDLE_ASSET}"
+		exit 1
+	fi
+
+	rm -rf "${EXTRACT_DIR}"
+	mkdir -p "${EXTRACT_DIR}" "src/json"
+	tar -xzf "${ARCHIVE_PATH}" -C "${EXTRACT_DIR}"
+
+	if [ ! -f "${EXTRACT_DIR}/SyntaxInterface/syntaxbridge_interface.h" ]; then
+		echo "Installing jaspSyntax failed because ${SOURCE_BUNDLE_ASSET} does not contain SyntaxInterface/syntaxbridge_interface.h"
+		exit 1
+	fi
+
+	cp "${EXTRACT_DIR}/SyntaxInterface/syntaxbridge_interface.h" "${SYNTAXINTERFACE_HEADER_PATH}"
+	for FILE_NAME in ${JSON_FILES}; do
+		cp "${EXTRACT_DIR}/Common/json/${FILE_NAME}" "src/json/${FILE_NAME}"
+	done
+
+	rm -rf "${EXTRACT_DIR}" "${ARCHIVE_PATH}"
+	SYNTAXINTERFACE_HEADER_ORIGIN="${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}:SyntaxInterface/syntaxbridge_interface.h"
 }
 
 # ---------- Detect platform and architecture ----------
@@ -128,6 +159,7 @@ recorded_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date)
 platform=${UNAME_S}
 architecture=${ARCH}
 release_tag=${GITHUB_RELEASE_TAG}
+release_repo=${GITHUB_RELEASE_REPO}
 header_path=${SYNTAXINTERFACE_HEADER_PATH}
 header_origin=${SYNTAXINTERFACE_HEADER_ORIGIN}
 binary_path=${SYNTAXINTERFACE_BINARY_PATH}
@@ -155,11 +187,7 @@ if [[ "${JASP_SOURCE_DIR}" ]]; then
 	for i in ${JSON_FILES}; do
 		cp "${JASP_SOURCE_DIR}/Common/json/${i}" "src/json/${i}"
 	done
-else
-	if [ "${GITHUB_JASP_DESKTOP_FILES}" = "" ]; then
-		GITHUB_JASP_DESKTOP_FILES="https://raw.githubusercontent.com/jasp-stats/jasp-desktop/refs/heads/development"
-	fi
-
+elif [ -n "${GITHUB_JASP_DESKTOP_FILES}" ]; then
 	loadFile "${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface" "syntaxbridge_interface.h"
 	SYNTAXINTERFACE_HEADER_ORIGIN="${GITHUB_JASP_DESKTOP_FILES}/SyntaxInterface/syntaxbridge_interface.h"
 
@@ -168,6 +196,8 @@ else
 	for i in ${JSON_FILES}; do
 		loadFile "${GITHUB_JASP_DESKTOP_FILES}/Common" "json/${i}"
 	done
+else
+	loadReleaseSourceBundle
 fi
 
 # ---------- Download pre-built library if needed ----------

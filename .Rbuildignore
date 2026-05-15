@@ -7,3 +7,9 @@
 ^\.github$
 ^\.editorconfig$
 ^demo\.R$
+^inst/libs$
+^src/Makevars$
+^src/Makevars\.win$
+^src/SyntaxInterface\.provenance$
+^src/syntaxbridge_interface\.h$
+^src/json$
