@@ -41,35 +41,36 @@ env:
 jobs:
 
   # ---------------------------------------------------------------------------
+  # Builds the matrix from the full list, filtered by os_filter when set.
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          ALL='{"include":[
+            {"os":"ubuntu-latest",    "arch":"x86_64","artifact":"libSyntaxInterface-linux-x86_64.so",     "lib_file":"libSyntaxInterface.so"},
+            {"os":"ubuntu-24.04-arm", "arch":"arm64", "artifact":"libSyntaxInterface-linux-arm64.so",      "lib_file":"libSyntaxInterface.so"},
+            {"os":"macos-15-intel",   "arch":"x86_64","artifact":"libSyntaxInterface-darwin-x86_64.dylib", "lib_file":"libSyntaxInterface.dylib"},
+            {"os":"macos-15",         "arch":"arm64", "artifact":"libSyntaxInterface-darwin-arm64.dylib",  "lib_file":"libSyntaxInterface.dylib"},
+            {"os":"windows-latest",   "arch":"x86_64","artifact":"SyntaxInterface-windows-x86_64.dll",     "lib_file":"SyntaxInterface.dll"}
+          ]}'
+          FILTER='${{ github.event.inputs.os_filter }}'
+          if [ -z "$FILTER" ]; then
+            echo "matrix=$ALL" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix=$(echo "$ALL" | jq -c --arg os "$FILTER" '{include:[.include[]|select(.os==$os)]}')" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
   build:
+    needs: setup
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            arch: x86_64
-            artifact: libSyntaxInterface-linux-x86_64.so
-            lib_file: libSyntaxInterface.so
-          - os: ubuntu-24.04-arm
-            arch: arm64
-            artifact: libSyntaxInterface-linux-arm64.so
-            lib_file: libSyntaxInterface.so
-          - os: macos-15-intel
-            arch: x86_64
-            artifact: libSyntaxInterface-darwin-x86_64.dylib
-            lib_file: libSyntaxInterface.dylib
-          - os: macos-15          # Apple Silicon (M1)
-            arch: arm64
-            artifact: libSyntaxInterface-darwin-arm64.dylib
-            lib_file: libSyntaxInterface.dylib
-          - os: windows-latest
-            arch: x86_64
-            artifact: SyntaxInterface-windows-x86_64.dll
-            lib_file: SyntaxInterface.dll
-        # the runners are based on https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
-        # this may need to be updated over time
-
-    if: ${{ github.event.inputs.os_filter == '' || github.event.inputs.os_filter == matrix.os }}
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    # the runners are based on https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
+    # this may need to be updated over time
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }} (${{ matrix.arch }})
 
@@ -317,7 +318,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   release:
-    needs: build
+    needs: [setup, build]
     if: ${{ github.event.inputs.os_filter == '' }}
     runs-on: ubuntu-latest
     permissions:
