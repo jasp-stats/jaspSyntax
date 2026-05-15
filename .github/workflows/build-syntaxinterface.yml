@@ -31,6 +31,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  JASP_DESKTOP_REPO: ${{ github.repository_owner }}/jasp-desktop
   JASP_DESKTOP_REF: ${{ github.event.inputs.jasp_desktop_ref || 'development' }}
   RELEASE_TAG: ${{ github.event.inputs.release_tag || 'syntaxinterface-libs' }}
   QT_VERSION: '6.10.2'
@@ -184,7 +185,7 @@ jobs:
       - name: Clone jasp-desktop
         uses: actions/checkout@v6
         with:
-          repository: jasp-stats/jasp-desktop
+          repository: ${{ env.JASP_DESKTOP_REPO }}
           ref: ${{ env.JASP_DESKTOP_REF }}
           path: jasp-desktop
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -348,7 +349,7 @@ jobs:
           cat > release-body.md <<EOF
           Pre-built \`libSyntaxInterface\` binaries for use by \`jaspSyntax\`.
 
-          Built from [jasp-desktop@${JASP_DESKTOP_REF}](https://github.com/jasp-stats/jasp-desktop/tree/${JASP_DESKTOP_REF}).
+          Built from [jasp-desktop@${JASP_DESKTOP_REF}](https://github.com/${JASP_DESKTOP_REPO}/tree/${JASP_DESKTOP_REF}).
           Resolved jasp-desktop SHA: \`${JASP_DESKTOP_SHA}\`
           jaspSyntax workflow SHA: \`${JASP_SYNTAX_SHA}\`
           Qt version: ${QT_VERSION} (static, submodules: ${QT_SUBMODULES}).
