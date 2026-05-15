@@ -44,16 +44,16 @@
     return(explicit[[1L]])
   }
 
-  roots <- unique(unlist(lapply(pathEntries, .qtRootForPathEntry), use.names = FALSE))
+  roots <- unique(as.character(unlist(lapply(pathEntries, .qtRootForPathEntry), use.names = FALSE)))
   roots <- roots[nzchar(roots)]
   msvcRoots <- roots[grepl("/msvc", roots, ignore.case = TRUE)]
   if (length(msvcRoots) > 0L) {
     return(msvcRoots[[1L]])
   }
 
-  siblingMsvcRoots <- unique(unlist(lapply(dirname(roots), function(parent) {
+  siblingMsvcRoots <- unique(as.character(unlist(lapply(dirname(roots), function(parent) {
     Sys.glob(file.path(parent, "msvc*"))
-  }), use.names = FALSE))
+  }), use.names = FALSE)))
   siblingMsvcRoots <- normalizePath(siblingMsvcRoots[nzchar(siblingMsvcRoots)], winslash = "/", mustWork = FALSE)
   siblingMsvcRoots <- siblingMsvcRoots[dir.exists(file.path(siblingMsvcRoots, "qml"))]
   if (length(siblingMsvcRoots) > 0L) {

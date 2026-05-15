@@ -17,9 +17,9 @@
   qtRoots <- unique(normalizePath(qtRoots[nzchar(qtRoots)], winslash = "/", mustWork = FALSE))
   explicitRoots <- unique(normalizePath(explicitRoots[nzchar(explicitRoots)], winslash = "/", mustWork = FALSE))
   msvcRoots <- qtRoots[grepl("/msvc", qtRoots, ignore.case = TRUE)]
-  siblingMsvcRoots <- unique(unlist(lapply(dirname(qtRoots), function(parent) {
+  siblingMsvcRoots <- unique(as.character(unlist(lapply(dirname(qtRoots), function(parent) {
     Sys.glob(file.path(parent, "msvc*"))
-  }), use.names = FALSE))
+  }), use.names = FALSE)))
   siblingMsvcRoots <- normalizePath(siblingMsvcRoots[nzchar(siblingMsvcRoots)], winslash = "/", mustWork = FALSE)
   siblingMsvcRoots <- siblingMsvcRoots[dir.exists(file.path(siblingMsvcRoots, "bin"))]
 
