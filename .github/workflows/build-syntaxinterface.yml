@@ -181,6 +181,13 @@ jobs:
           cmake --build . --parallel
           cmake --install .
 
+      - name: Save Qt static cache
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ github.workspace }}/qt-static
+          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES_CACHE_KEY }}
+
       # ---- Clone and build jasp-desktop / SyntaxInterface ----
 
       - name: Clone jasp-desktop
