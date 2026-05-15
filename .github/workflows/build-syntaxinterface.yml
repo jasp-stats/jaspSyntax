@@ -278,6 +278,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p syntaxinterface-sources/SyntaxInterface syntaxinterface-sources/Common/json
+          {
+            echo "schema=1"
+            echo "jasp_desktop_ref=${{ env.JASP_DESKTOP_REF }}"
+            echo "jasp_desktop_sha=$(git -C jasp-desktop rev-parse HEAD)"
+            echo "jasp_syntax_sha=$(git rev-parse HEAD)"
+            echo "qt_version=${{ env.QT_VERSION }}"
+            echo "qt_submodules=${{ env.QT_SUBMODULES }}"
+          } > syntaxinterface-sources/BUILD_PROVENANCE
           cp jasp-desktop/SyntaxInterface/syntaxbridge_interface.h syntaxinterface-sources/SyntaxInterface/
           for file in allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h; do
             cp "jasp-desktop/Common/json/${file}" "syntaxinterface-sources/Common/json/${file}"
@@ -322,18 +330,32 @@ jobs:
       - name: Show checksums
         run: cat libs/SHA256SUMS
 
+      - name: Write release notes
+        shell: bash
+        run: |
+          tar -xOf libs/SyntaxInterface-sources.tar.gz ./BUILD_PROVENANCE > BUILD_PROVENANCE
+          JASP_DESKTOP_REF=$(grep -E '^jasp_desktop_ref=' BUILD_PROVENANCE | sed -E 's/^[^=]+=//')
+          JASP_DESKTOP_SHA=$(grep -E '^jasp_desktop_sha=' BUILD_PROVENANCE | sed -E 's/^[^=]+=//')
+          JASP_SYNTAX_SHA=$(grep -E '^jasp_syntax_sha=' BUILD_PROVENANCE | sed -E 's/^[^=]+=//')
+          QT_VERSION=$(grep -E '^qt_version=' BUILD_PROVENANCE | sed -E 's/^[^=]+=//')
+          QT_SUBMODULES=$(grep -E '^qt_submodules=' BUILD_PROVENANCE | sed -E 's/^[^=]+=//')
+          cat > release-body.md <<EOF
+          Pre-built \`libSyntaxInterface\` binaries for use by \`jaspSyntax\`.
+
+          Built from [jasp-desktop@${JASP_DESKTOP_REF}](https://github.com/jasp-stats/jasp-desktop/tree/${JASP_DESKTOP_REF}).
+          Resolved jasp-desktop SHA: \`${JASP_DESKTOP_SHA}\`
+          jaspSyntax workflow SHA: \`${JASP_SYNTAX_SHA}\`
+          Qt version: ${QT_VERSION} (static, submodules: ${QT_SUBMODULES}).
+
+          These are downloaded automatically by the \`configure\` script during \`install.packages("jaspSyntax")\`.
+          EOF
+
       - name: Create or update release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: "SyntaxInterface pre-built libraries"
-          body: |
-            Pre-built `libSyntaxInterface` binaries for use by `jaspSyntax`.
-
-            Built from [jasp-desktop@${{ env.JASP_DESKTOP_REF }}](https://github.com/jasp-stats/jasp-desktop/tree/${{ env.JASP_DESKTOP_REF }}).
-            Qt version: ${{ env.QT_VERSION }} (static, submodules: ${{ env.QT_SUBMODULES }}).
-
-            These are downloaded automatically by the `configure` script during `install.packages("jaspSyntax")`.
+          body_path: release-body.md
           files: libs/*
           draft: false
           prerelease: false

@@ -11,6 +11,20 @@ GITHUB_RELEASE_TAG="${JASPSYNTAX_RELEASE_TAG:-syntaxinterface-libs}"
 GITHUB_RELEASE_REPO="${JASPSYNTAX_RELEASE_REPO:-jasp-stats/jaspSyntax}"
 GITHUB_RELEASE_URL="https://github.com/${GITHUB_RELEASE_REPO}/releases/download/${GITHUB_RELEASE_TAG}"
 SOURCE_BUNDLE_ASSET="SyntaxInterface-sources.tar.gz"
+SOURCE_BUNDLE_PROVENANCE_ORIGIN=""
+SOURCE_BUNDLE_JASP_DESKTOP_REF=""
+SOURCE_BUNDLE_JASP_DESKTOP_SHA=""
+SOURCE_BUNDLE_JASP_SYNTAX_SHA=""
+SOURCE_BUNDLE_QT_VERSION=""
+
+function sourceBundleProvenanceValue() {
+	local FILE_PATH="$1"
+	local KEY="$2"
+
+	if [ -f "${FILE_PATH}" ]; then
+		grep -E "^${KEY}=" "${FILE_PATH}" | head -n 1 | sed -E 's/^[^=]+=//'
+	fi
+}
 
 
 function downloadFile() {
@@ -72,6 +86,14 @@ Set JASP_SOURCE_DIR to a matching jasp-desktop checkout, or publish %s together 
 	for FILE_NAME in ${JSON_FILES}; do
 		cp "${EXTRACT_DIR}/Common/json/${FILE_NAME}" "src/json/${FILE_NAME}"
 	done
+
+	if [ -f "${EXTRACT_DIR}/BUILD_PROVENANCE" ]; then
+		SOURCE_BUNDLE_PROVENANCE_ORIGIN="${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}:BUILD_PROVENANCE"
+		SOURCE_BUNDLE_JASP_DESKTOP_REF=$(sourceBundleProvenanceValue "${EXTRACT_DIR}/BUILD_PROVENANCE" "jasp_desktop_ref")
+		SOURCE_BUNDLE_JASP_DESKTOP_SHA=$(sourceBundleProvenanceValue "${EXTRACT_DIR}/BUILD_PROVENANCE" "jasp_desktop_sha")
+		SOURCE_BUNDLE_JASP_SYNTAX_SHA=$(sourceBundleProvenanceValue "${EXTRACT_DIR}/BUILD_PROVENANCE" "jasp_syntax_sha")
+		SOURCE_BUNDLE_QT_VERSION=$(sourceBundleProvenanceValue "${EXTRACT_DIR}/BUILD_PROVENANCE" "qt_version")
+	fi
 
 	rm -rf "${EXTRACT_DIR}" "${ARCHIVE_PATH}"
 	SYNTAXINTERFACE_HEADER_ORIGIN="${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}:SyntaxInterface/syntaxbridge_interface.h"
@@ -626,6 +648,11 @@ binary_path=${SYNTAXINTERFACE_BINARY_PATH}
 binary_origin=${SYNTAXINTERFACE_BINARY_ORIGIN}
 header_sha256=$(fileSha256 "${SYNTAXINTERFACE_HEADER_PATH}")
 binary_sha256=$(fileSha256 "${SYNTAXINTERFACE_BINARY_PATH}")
+source_bundle_provenance_origin=${SOURCE_BUNDLE_PROVENANCE_ORIGIN}
+source_bundle_jasp_desktop_ref=${SOURCE_BUNDLE_JASP_DESKTOP_REF}
+source_bundle_jasp_desktop_sha=${SOURCE_BUNDLE_JASP_DESKTOP_SHA}
+source_bundle_jasp_syntax_sha=${SOURCE_BUNDLE_JASP_SYNTAX_SHA}
+source_bundle_qt_version=${SOURCE_BUNDLE_QT_VERSION}
 jasp_source_dir=${JASP_SOURCE_DIR}
 jasp_build_dir=${JASP_BUILD_DIR}
 jaspsyntax_lib_dir=${JASPSYNTAX_LIB_DIR}
