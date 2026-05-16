@@ -176,6 +176,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "($Env:PATH -split ';' | Where-Object {$_ -notmatch 'rtools'}) -join ';'"`) do set "PATH=%%P"
           cd qt-src\${{ env.QT_VERSION }}\Src
           call configure.bat -release -static -opensource -confirm-license ^
             -prefix ${{ github.workspace }}\qt-static ^
