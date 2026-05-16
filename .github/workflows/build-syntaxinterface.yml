@@ -219,6 +219,9 @@ jobs:
             -DCUSTOM_R_PATH="${R_HOME}" \
             -DREQUIRE_GITHUB_PAT=OFF \
             -DJASP_SYNTAX_INTERFACE_ONLY=ON \
+            -DSIGN_AT_BUILD_TIME=OFF \
+            -DTIMESTAMP_AT_BUILD_TIME=OFF \
+            -DINSTALL_R_FRAMEWORK=OFF \
             -DINSTALL_R_MODULES=OFF \
             -DBUILD_TESTS=OFF
 
