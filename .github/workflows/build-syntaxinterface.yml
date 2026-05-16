@@ -340,7 +340,6 @@ jobs:
   # ---------------------------------------------------------------------------
   release:
     needs: [setup, build]
-    if: ${{ github.event.inputs.os_filter == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -352,14 +351,18 @@ jobs:
           merge-multiple: true
           path: libs
 
+      # Full build: regenerate checksums and release notes from the source bundle.
       - name: Generate checksums
+        if: github.event.inputs.os_filter == ''
         working-directory: libs
         run: sha256sum * > SHA256SUMS
 
       - name: Show checksums
+        if: github.event.inputs.os_filter == ''
         run: cat libs/SHA256SUMS
 
       - name: Write release notes
+        if: github.event.inputs.os_filter == ''
         shell: bash
         run: |
           tar -xOf libs/SyntaxInterface-sources.tar.gz ./BUILD_PROVENANCE > BUILD_PROVENANCE
@@ -379,13 +382,29 @@ jobs:
           These are downloaded automatically by the \`configure\` script during \`install.packages("jaspSyntax")\`.
           EOF
 
-      - name: Create or update release
+      - name: Create or update release (full build)
+        if: github.event.inputs.os_filter == ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: "SyntaxInterface pre-built libraries"
           body_path: release-body.md
           files: libs/*
+          draft: false
+          prerelease: false
+          make_latest: false
+
+      # Single-OS build: upload only the library file; leave release notes and
+      # the full SHA256SUMS from the last complete build untouched.
+      - name: Upload library to release (single OS)
+        if: github.event.inputs.os_filter != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            libs/*.so
+            libs/*.dylib
+            libs/*.dll
           draft: false
           prerelease: false
           make_latest: false
