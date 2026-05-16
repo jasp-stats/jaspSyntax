@@ -208,6 +208,13 @@ jobs:
           restore-keys: |
             conan-v1-${{ matrix.os }}-${{ matrix.arch }}-
 
+      - name: Link system R.framework into build directory (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p build/Frameworks
+          ln -sfn /Library/Frameworks/R.framework build/Frameworks/R.framework
+
       - name: Configure jasp-desktop (macOS)
         if: runner.os == 'macOS'
         shell: bash
