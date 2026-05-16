@@ -198,6 +198,10 @@ jobs:
           path: jasp-desktop
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Initialize jaspBase submodule
+        shell: bash
+        run: git -C jasp-desktop submodule update --init Engine/jaspBase
+
       - name: Restore Conan package cache (macOS)
         if: runner.os == 'macOS'
         id: cache-conan
