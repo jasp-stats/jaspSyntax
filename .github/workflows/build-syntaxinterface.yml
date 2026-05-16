@@ -110,9 +110,11 @@ jobs:
 
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
-        shell: bash
+        shell: cmd
         run: |
           choco install ninja -y
+          pip install conan
+          conan profile detect --force
 
       # ---- Install readstat (Linux) ----
 
