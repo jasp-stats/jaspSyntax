@@ -177,7 +177,7 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
           cd qt-src\${{ env.QT_VERSION }}\Src
-          configure.bat -release -static -opensource -confirm-license ^
+          call configure.bat -release -static -opensource -confirm-license ^
             -prefix ${{ github.workspace }}\qt-static ^
             -submodules ${{ env.QT_SUBMODULES }}
           cmake --build . --parallel
