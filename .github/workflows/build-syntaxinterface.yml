@@ -212,9 +212,9 @@ jobs:
           path: jasp-desktop
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Initialize jaspBase submodule
+      - name: Initialize required submodules
         shell: bash
-        run: git -C jasp-desktop submodule update --init Engine/jaspBase
+        run: git -C jasp-desktop submodule update --init Engine/jaspBase Engine/jaspModuleBundleManager
 
       - name: Restore Conan package cache (macOS)
         if: runner.os == 'macOS'
@@ -309,8 +309,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          # On Windows we also need libR-InterfaceNoRInside.dll
-          cp build/SyntaxInterface/${{ matrix.lib_file }} ${{ matrix.artifact }}
+          # On Windows CMAKE_RUNTIME_OUTPUT_DIRECTORY is set to CMAKE_BINARY_DIR,
+          # so SyntaxInterface.dll lands in build/ not build/SyntaxInterface/.
+          # libR-InterfaceNoRInside.dll is also needed at runtime.
+          cp build/${{ matrix.lib_file }} ${{ matrix.artifact }}
           if [ -f build/R-Interface/libR-InterfaceNoRInside.dll ]; then
             cp build/R-Interface/libR-InterfaceNoRInside.dll libR-InterfaceNoRInside-windows-x86_64.dll
           fi
