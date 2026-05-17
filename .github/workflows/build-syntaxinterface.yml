@@ -58,7 +58,7 @@ jobs:
           ]}'
           FILTER='${{ github.event.inputs.os_filter }}'
           if [ -z "$FILTER" ]; then
-            echo "matrix=$ALL" >> "$GITHUB_OUTPUT"
+            echo "matrix=$(echo "$ALL" | jq -c '.')" >> "$GITHUB_OUTPUT"
           else
             echo "matrix=$(echo "$ALL" | jq -c --arg os "$FILTER" '{include:[.include[]|select(.os==$os)]}')" >> "$GITHUB_OUTPUT"
           fi
