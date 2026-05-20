@@ -7,7 +7,7 @@
 set -e
 
 # ---------- GitHub Release configuration ----------
-GITHUB_RELEASE_TAG="${JASPSYNTAX_RELEASE_TAG:-syntaxinterface-libs}"
+GITHUB_RELEASE_TAG="${JASPSYNTAX_RELEASE_TAG:-v0.97.0}"
 GITHUB_RELEASE_REPO="${JASPSYNTAX_RELEASE_REPO:-jasp-stats/jaspSyntax}"
 GITHUB_RELEASE_URL="https://github.com/${GITHUB_RELEASE_REPO}/releases/download/${GITHUB_RELEASE_TAG}"
 SOURCE_BUNDLE_ASSET="SyntaxInterface-sources.tar.gz"
