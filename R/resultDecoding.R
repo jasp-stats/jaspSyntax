@@ -141,10 +141,21 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
     decoded <- unname(columnMapping[columnNames])
     matched <- !is.na(decoded)
     columnNames[matched] <- decoded[matched]
+    columnNames[!matched] <- .replaceAnalysisResultColumnNameTokens(
+      columnNames[!matched],
+      columnMapping
+    )
     return(columnNames)
   }
 
-  decodeColumnNames(columnNames, strict = FALSE)
+  decoded <- decodeColumnNames(columnNames, strict = FALSE)
+  tokens <- unique(unlist(.analysisResultColumnNameTokens(columnNames), use.names = FALSE))
+  if (length(tokens) == 0L) {
+    return(decoded)
+  }
+
+  tokenMapping <- stats::setNames(decodeColumnNames(tokens, strict = FALSE), tokens)
+  .replaceAnalysisResultColumnNameTokens(decoded, tokenMapping)
 }
 
 .encodedAnalysisResultColumnNames <- function(decodedColumnName,
@@ -155,4 +166,41 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
   }
 
   names(columnMapping)[!is.na(columnMapping) & columnMapping == decodedColumnName]
+}
+
+.analysisResultColumnNameTokens <- function(columnNames) {
+  matches <- gregexpr(.analysisResultColumnNamePattern(), columnNames, perl = TRUE)
+  regmatches(columnNames, matches)
+}
+
+.analysisResultColumnNamePattern <- function() {
+  "JaspColumn_[[:alnum:]_]+_Encoded|jaspColumn[0-9]+"
+}
+
+.replaceAnalysisResultColumnNameTokens <- function(columnNames, columnMapping) {
+  if (!is.character(columnNames) || length(columnNames) == 0L ||
+      length(columnMapping) == 0L) {
+    return(columnNames)
+  }
+
+  tokenLists <- .analysisResultColumnNameTokens(columnNames)
+  if (!any(lengths(tokenLists) > 0L)) {
+    return(columnNames)
+  }
+
+  for (i in seq_along(columnNames)) {
+    tokens <- unique(tokenLists[[i]])
+    if (length(tokens) == 0L) {
+      next
+    }
+
+    for (token in tokens) {
+      replacement <- unname(columnMapping[token])
+      if (!is.na(replacement) && nzchar(replacement)) {
+        columnNames[[i]] <- gsub(token, replacement, columnNames[[i]], fixed = TRUE)
+      }
+    }
+  }
+
+  columnNames
 }

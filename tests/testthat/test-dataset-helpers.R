@@ -275,7 +275,10 @@ test_that("decodeAnalysisResults can use captured column mapping without native 
         data = list(
           list(
             JaspColumn_1_Encoded = "2",
-            Variable = "JaspColumn_1_Encoded"
+            Variable = "JaspColumn_1_Encoded",
+            Interaction = "JaspColumn_1_Encoded:jaspColumn2",
+            Note = "The following variables are used: 'JaspColumn_1_Encoded', 'jaspColumn2'.",
+            Unmatched = "jaspColumn10"
           )
         )
       )
@@ -285,13 +288,16 @@ test_that("decodeAnalysisResults can use captured column mapping without native 
   decoded <- jaspSyntax::decodeAnalysisResults(
     results,
     requestedDataset = requestedDataset,
-    columnMapping = c(JaspColumn_1_Encoded = "group")
+    columnMapping = c(JaspColumn_1_Encoded = "group", jaspColumn2 = "phase")
   )
   firstRow <- decoded$results$table$data[[1L]]
 
-  expect_equal(names(firstRow), c("group", "Variable"))
+  expect_equal(names(firstRow), c("group", "Variable", "Interaction", "Note", "Unmatched"))
   expect_equal(firstRow$group, "treatment")
   expect_equal(firstRow$Variable, "group")
+  expect_equal(firstRow$Interaction, "group:phase")
+  expect_equal(firstRow$Note, "The following variables are used: 'group', 'phase'.")
+  expect_equal(firstRow$Unmatched, "jaspColumn10")
 })
 
 test_that("decodeAnalysisResults maps factor values with decoded requested datasets", {
