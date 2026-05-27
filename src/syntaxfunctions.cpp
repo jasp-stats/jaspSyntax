@@ -120,6 +120,11 @@ bool setParameter(String name, SEXP value)
 		global_param_orderLabelsByValue = Rcpp::as<bool>(value);
 		return true;
 	}
+	else if (nameStr == "verbose" && Rcpp::is<bool>(value))
+	{
+		syntaxBridgeSetVerbose(Rcpp::as<bool>(value));
+		return true;
+	}
 
 	return false;
 }
