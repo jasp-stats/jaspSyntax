@@ -19,6 +19,9 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+#include <algorithm>
+#include <cctype>
+
 #include "dataframeimporter.h"
 #include "syntaxbridge_interface.h"
 #include "json/json.h"
@@ -55,6 +58,35 @@ Json::Value parseBridgeJsonOrStop(const char * rawJson, const char * functionNam
 		Rcpp::stop("%s returned invalid JSON.", functionName);
 
 	return parsedJson;
+}
+
+std::string normalizeParameterString(std::string value)
+{
+	auto isNotSpace = [](unsigned char c) { return !std::isspace(c); };
+	value.erase(value.begin(), std::find_if(value.begin(), value.end(), isNotSpace));
+	value.erase(std::find_if(value.rbegin(), value.rend(), isNotSpace).base(), value.end());
+	std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return std::tolower(c); });
+	return value;
+}
+
+bool verboseValueShowsNativeOutput(const std::string & value, bool & verbose)
+{
+	const std::string normalizedValue = normalizeParameterString(value);
+	if (normalizedValue == "all" || normalizedValue == "jasp" || normalizedValue == "true" ||
+		normalizedValue == "yes" || normalizedValue == "on" || normalizedValue == "1")
+	{
+		verbose = true;
+		return true;
+	}
+
+	if (normalizedValue == "analysis" || normalizedValue == "none" || normalizedValue == "false" ||
+		normalizedValue == "no" || normalizedValue == "off" || normalizedValue == "0")
+	{
+		verbose = false;
+		return true;
+	}
+
+	return false;
 }
 
 // [[Rcpp::export]]
@@ -120,10 +152,25 @@ bool setParameter(String name, SEXP value)
 		global_param_orderLabelsByValue = Rcpp::as<bool>(value);
 		return true;
 	}
-	else if (nameStr == "verbose" && Rcpp::is<bool>(value))
+	else if (nameStr == "verbose")
 	{
-		syntaxBridgeSetVerbose(Rcpp::as<bool>(value));
-		return true;
+		if (Rcpp::is<bool>(value))
+		{
+			syntaxBridgeSetVerbose(Rcpp::as<bool>(value));
+			return true;
+		}
+
+		if (TYPEOF(value) == STRSXP && Rf_length(value) > 0)
+		{
+			bool verbose = false;
+			if (!verboseValueShowsNativeOutput(Rcpp::as<std::string>(value), verbose))
+				Rcpp::stop("Unsupported verbose value. Use 'all', 'analysis', 'jasp', 'none', TRUE, or FALSE.");
+
+			syntaxBridgeSetVerbose(verbose);
+			return true;
+		}
+
+		return false;
 	}
 
 	return false;

@@ -74,8 +74,10 @@ package code should prefer the higher-level helpers such as
 \code{readRequestedDataset()}, \code{readAnalysisOptionsFromJaspFile()}, and
 \code{readDatasetFromJaspFile()}.
 
-\code{setParameter("verbose", TRUE)} enables native SyntaxInterface logging for
-debugging. Logging is disabled by default and can also be enabled before bridge
+\code{setParameter("verbose", TRUE)} or \code{setParameter("verbose", "jasp")}
+enables native SyntaxInterface logging for debugging. \code{"all"} also enables
+native logging, while \code{"analysis"}, \code{"none"}, and \code{FALSE} disable
+it. Native logging is disabled by default and can also be enabled before bridge
 initialization with the \code{JASP_SYNTAX_VERBOSE=1} environment variable.
 
 \code{cleanUp()} clears the native state and then runs the legacy cleanup hook.
