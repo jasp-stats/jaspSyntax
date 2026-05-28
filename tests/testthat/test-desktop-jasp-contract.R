@@ -138,3 +138,25 @@ test_that("native and R bridge exports keep the expected consumer formals", {
   expect_true(formals(jaspSyntax::readAnalysisOptionsFromJaspFile)$includeTypeOptions)
   expect_true(formals(jaspSyntax::readAnalysisOptionsFromJaspFile)$isolated)
 })
+
+test_that("verbose parameter sets the wrapped-analysis verbosity default", {
+  oldOptions <- options(jaspSyntax.verbose = NULL)
+  on.exit(do.call(options, oldOptions), add = TRUE)
+
+  expect_true(jaspSyntax::setParameter("verbose", FALSE))
+  expect_identical(getOption("jaspSyntax.verbose"), "analysis")
+
+  expect_true(jaspSyntax::setParameter("verbose", TRUE))
+  expect_identical(getOption("jaspSyntax.verbose"), "all")
+
+  expect_true(jaspSyntax::setParameter("verbose", "jasp"))
+  expect_identical(getOption("jaspSyntax.verbose"), "jasp")
+
+  expect_true(jaspSyntax::setParameter("verbose", "none"))
+  expect_identical(getOption("jaspSyntax.verbose"), "none")
+
+  expect_error(
+    jaspSyntax::setParameter("verbose", "loud"),
+    "`verbose` must be one of"
+  )
+})

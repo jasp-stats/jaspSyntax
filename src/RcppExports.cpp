@@ -55,15 +55,15 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// setParameter
-bool setParameter(String name, SEXP value);
-RcppExport SEXP _jaspSyntax_setParameter(SEXP nameSEXP, SEXP valueSEXP) {
+// setParameterNative
+bool setParameterNative(String name, SEXP value);
+RcppExport SEXP _jaspSyntax_setParameterNative(SEXP nameSEXP, SEXP valueSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< String >::type name(nameSEXP);
     Rcpp::traits::input_parameter< SEXP >::type value(valueSEXP);
-    rcpp_result_gen = Rcpp::wrap(setParameter(name, value));
+    rcpp_result_gen = Rcpp::wrap(setParameterNative(name, value));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -166,7 +166,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_clearQmlFormsNative", (DL_FUNC) &_jaspSyntax_clearQmlFormsNative, 0},
     {"_jaspSyntax_clearDatasetStateNative", (DL_FUNC) &_jaspSyntax_clearDatasetStateNative, 0},
     {"_jaspSyntax_clearNativeStateNative", (DL_FUNC) &_jaspSyntax_clearNativeStateNative, 0},
-    {"_jaspSyntax_setParameter", (DL_FUNC) &_jaspSyntax_setParameter, 2},
+    {"_jaspSyntax_setParameterNative", (DL_FUNC) &_jaspSyntax_setParameterNative, 2},
     {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
     {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},
     {"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 1},

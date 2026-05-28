@@ -133,7 +133,7 @@ void clearNativeStateNative()
 }
 
 // [[Rcpp::export]]
-bool setParameter(String name, SEXP value)
+bool setParameterNative(String name, SEXP value)
 {
 	std::string nameStr		= name.get_cstring();
 

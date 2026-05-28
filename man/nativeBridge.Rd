@@ -75,10 +75,16 @@ package code should prefer the higher-level helpers such as
 \code{readDatasetFromJaspFile()}.
 
 \code{setParameter("verbose", TRUE)} or \code{setParameter("verbose", "jasp")}
-enables native SyntaxInterface logging for debugging. \code{"all"} also enables
-native logging, while \code{"analysis"}, \code{"none"}, and \code{FALSE} disable
-it. Native logging is disabled by default and can also be enabled before bridge
-initialization with the \code{JASP_SYNTAX_VERBOSE=1} environment variable.
+enables native SyntaxInterface logging for debugging. For wrapped analyses,
+\code{setParameter("verbose", value)} also sets the default verbosity honored by
+\code{jaspBase} and \code{jaspTools}: \code{"all"} shows native and analysis
+output, \code{"analysis"} shows analysis messages and warnings only,
+\code{"jasp"} shows native output only, and \code{"none"} suppresses both.
+For compatibility with the old native toggle,
+\code{setParameter("verbose", FALSE)} disables native logging while keeping
+analysis diagnostics visible. Native logging is disabled by default and can also
+be enabled before bridge initialization with the \code{JASP_SYNTAX_VERBOSE=1}
+environment variable.
 
 \code{cleanUp()} clears the native state and then runs the legacy cleanup hook.
 Use \code{\link{clearQmlForms}}, \code{\link{clearDatasetState}}, or

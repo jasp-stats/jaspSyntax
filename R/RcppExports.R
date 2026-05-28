@@ -21,8 +21,8 @@ clearNativeStateNative <- function() {
     invisible(.Call(`_jaspSyntax_clearNativeStateNative`))
 }
 
-setParameter <- function(name, value) {
-    .Call(`_jaspSyntax_setParameter`, name, value)
+setParameterNative <- function(name, value) {
+    .Call(`_jaspSyntax_setParameterNative`, name, value)
 }
 
 loadDataSet <- function(data) {
