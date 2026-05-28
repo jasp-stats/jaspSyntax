@@ -196,10 +196,22 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 				analysisNameStr	= analysisName.get_cstring(),
 				moduleNameStr	= moduleName.get_cstring();
 
+	Json::Value status = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeLoadQmlAndParseOptionsStatus", [&]() {
+			return syntaxBridgeLoadQmlAndParseOptionsStatus(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+		}),
+		"syntaxBridgeLoadQmlAndParseOptionsStatus"
+	);
 
-	return callBridgeOrStop("syntaxBridgeLoadQmlAndParseOptions", [&]() {
-		return syntaxBridgeLoadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
-	});
+	if (!status["ok"].asBool())
+	{
+		std::string error = status.isMember("error") ? status["error"].asString() : "unknown error";
+		Rcpp::stop("Error when parsing options: %s", error.c_str());
+	}
+
+	static std::string result;
+	result = status["options"].toStyledString();
+	return result.c_str();
 }
 
 // [[Rcpp::export]]

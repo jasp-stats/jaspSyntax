@@ -667,15 +667,6 @@ parseQmlOptions <- function(qmlFile, options = NULL, moduleName = "jaspModule",
     preloadData = preloadData
   )
 
-  if (!is.character(rawOptions) || length(rawOptions) != 1L || !nzchar(rawOptions)) {
-    stop(
-      "jaspSyntax::loadQmlAndParseOptions() failed for QML file `",
-      qmlFile,
-      "`",
-      call. = FALSE
-    )
-  }
-
   if (identical(output, "json")) {
     return(rawOptions)
   }
