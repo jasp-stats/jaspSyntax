@@ -272,7 +272,24 @@ columnMapping <- function(encodedColumnNames = NULL, strict = FALSE) {
   strict <- .validateFlag(strict, "strict")
 
   if (is.null(encodedColumnNames)) {
-    encodedColumnNames <- readDatasetHeader(decode = FALSE)$encodedName
+    # getVariableNames() returns the decoded (user-facing) column names, not the
+    # JaspColumn_X_Encoded tokens the bridge uses during analysis execution.
+    # Encode each name via the bridge's .encodeColNamesStrict to get the actual
+    # analysis-time encoding tokens, then build the encoded → decoded mapping.
+    decodedNames <- readDatasetHeader(decode = FALSE)$encodedName
+    encodeFunc   <- get0(".encodeColNamesStrict", envir = .GlobalEnv, inherits = FALSE)
+    if (is.function(encodeFunc) && length(decodedNames) > 0L) {
+      encoded <- tryCatch(
+        vapply(decodedNames, function(n) {
+          enc <- encodeFunc(n)
+          if (is.character(enc) && length(enc) == 1L && nzchar(enc)) enc else n
+        }, character(1L), USE.NAMES = FALSE),
+        error = function(e) decodedNames
+      )
+      encodedColumnNames <- if (!identical(encoded, decodedNames)) encoded else decodedNames
+    } else {
+      encodedColumnNames <- decodedNames
+    }
   }
 
   if (!is.character(encodedColumnNames)) {
