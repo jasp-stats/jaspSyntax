@@ -38,8 +38,25 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
     )
   }
 
+  if (is.null(columnMapping) && is.data.frame(requestedDataset)) {
+    columnMapping <- tryCatch(
+      get("columnMapping", envir = asNamespace("jaspSyntax"))(names(requestedDataset), strict = FALSE),
+      error = function(e) NULL
+    )
+  }
+
+  columnDecoder <- .analysisResultColumnDecoder(columnMapping)
+  columnDecodeContext <- list(
+    columnMapping = columnMapping,
+    columnDecoder = columnDecoder
+  )
+
   if (!is.data.frame(requestedDataset)) {
-    return(list(factorValues = list(), columnMapping = columnMapping))
+    return(list(
+      factorValues = list(),
+      columnMapping = columnMapping,
+      columnDecoder = columnDecoder
+    ))
   }
 
   factorValues <- list()
@@ -51,7 +68,7 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
 
     valueMap <- stats::setNames(levels(column), as.character(seq_along(levels(column))))
     decodedName <- tryCatch(
-      .decodeAnalysisResultColumnNames(columnName, columnMapping),
+      .decodeAnalysisResultColumnNames(columnName, columnDecodeContext),
       error = function(e) columnName
     )
     columnKeys <- unique(c(
@@ -67,10 +84,29 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
     }
   }
 
-  list(factorValues = factorValues, columnMapping = columnMapping)
+  list(
+    factorValues = factorValues,
+    columnMapping = columnMapping,
+    columnDecoder = columnDecoder
+  )
+}
+
+.analysisResultColumnDecoder <- function(columnMapping = NULL) {
+  tryCatch(
+    columnDecoderSnapshot(columnMapping),
+    error = function(e) NULL
+  )
 }
 
 .decodeAnalysisResultObject <- function(x, fieldName = NULL, decodeContext) {
+  if (isS4(x) || is.call(x) || is.name(x)) {
+    return(x)
+  }
+
+  if (is.object(x) && !is.data.frame(x)) {
+    return(x)
+  }
+
   if (is.list(x)) {
     oldNames <- names(x)
     for (i in seq_len(length(x))) {
@@ -80,10 +116,7 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
     }
 
     if (!is.null(oldNames)) {
-      names(x) <- .decodeAnalysisResultColumnNames(
-        oldNames,
-        decodeContext[["columnMapping"]]
-      )
+      names(x) <- .decodeAnalysisResultColumnNames(oldNames, decodeContext)
     }
 
     return(x)
@@ -92,10 +125,7 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
   x <- .decodeAnalysisResultFactorValues(x, fieldName, decodeContext)
 
   if (is.character(x)) {
-    x <- .decodeAnalysisResultColumnNames(
-      x,
-      decodeContext[["columnMapping"]]
-    )
+    x <- .decodeAnalysisResultColumnNames(x, decodeContext)
   }
 
   x
@@ -132,30 +162,23 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
   columnMapping[valid]
 }
 
-.decodeAnalysisResultColumnNames <- function(columnNames, columnMapping = NULL) {
+.decodeAnalysisResultColumnNames <- function(columnNames, decodeContext = NULL) {
   if (!is.character(columnNames) || length(columnNames) == 0L) {
     return(columnNames)
   }
 
+  columnMapping <- decodeContext[["columnMapping"]]
+  columnDecoder <- decodeContext[["columnDecoder"]]
+
+  if (inherits(columnDecoder, "jaspSyntaxColumnDecoder")) {
+    return(decodeColumnText(columnNames, columnDecoder))
+  }
+
   if (length(columnMapping) > 0L) {
-    decoded <- unname(columnMapping[columnNames])
-    matched <- !is.na(decoded)
-    columnNames[matched] <- decoded[matched]
-    columnNames[!matched] <- .replaceAnalysisResultColumnNameTokens(
-      columnNames[!matched],
-      columnMapping
-    )
-    return(columnNames)
+    return(.decodeColumnNamesWithMapping(columnNames, columnMapping))
   }
 
-  decoded <- decodeColumnNames(columnNames, strict = FALSE)
-  tokens <- unique(unlist(.analysisResultColumnNameTokens(columnNames), use.names = FALSE))
-  if (length(tokens) == 0L) {
-    return(decoded)
-  }
-
-  tokenMapping <- stats::setNames(decodeColumnNames(tokens, strict = FALSE), tokens)
-  .replaceAnalysisResultColumnNameTokens(decoded, tokenMapping)
+  decodeColumnText(columnNames)
 }
 
 .encodedAnalysisResultColumnNames <- function(decodedColumnName,
@@ -166,41 +189,4 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
   }
 
   names(columnMapping)[!is.na(columnMapping) & columnMapping == decodedColumnName]
-}
-
-.analysisResultColumnNameTokens <- function(columnNames) {
-  matches <- gregexpr(.analysisResultColumnNamePattern(), columnNames, perl = TRUE)
-  regmatches(columnNames, matches)
-}
-
-.analysisResultColumnNamePattern <- function() {
-  "JaspColumn_[[:alnum:]_]+_Encoded|jaspColumn[0-9]+"
-}
-
-.replaceAnalysisResultColumnNameTokens <- function(columnNames, columnMapping) {
-  if (!is.character(columnNames) || length(columnNames) == 0L ||
-      length(columnMapping) == 0L) {
-    return(columnNames)
-  }
-
-  tokenLists <- .analysisResultColumnNameTokens(columnNames)
-  if (!any(lengths(tokenLists) > 0L)) {
-    return(columnNames)
-  }
-
-  for (i in seq_along(columnNames)) {
-    tokens <- unique(tokenLists[[i]])
-    if (length(tokens) == 0L) {
-      next
-    }
-
-    for (token in tokens) {
-      replacement <- unname(columnMapping[token])
-      if (!is.na(replacement) && nzchar(replacement)) {
-        columnNames[[i]] <- gsub(token, replacement, columnNames[[i]], fixed = TRUE)
-      }
-    }
-  }
-
-  columnNames
 }

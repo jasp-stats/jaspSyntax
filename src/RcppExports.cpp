@@ -159,6 +159,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// columnDecoderSnapshotNative
+String columnDecoderSnapshotNative();
+RcppExport SEXP _jaspSyntax_columnDecoderSnapshotNative() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(columnDecoderSnapshotNative());
+    return rcpp_result_gen;
+END_RCPP
+}
+// decodeColumnTextNative
+Rcpp::CharacterVector decodeColumnTextNative(Rcpp::CharacterVector values, String decoderSnapshotJson);
+RcppExport SEXP _jaspSyntax_decodeColumnTextNative(SEXP valuesSEXP, SEXP decoderSnapshotJsonSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type values(valuesSEXP);
+    Rcpp::traits::input_parameter< String >::type decoderSnapshotJson(decoderSnapshotJsonSEXP);
+    rcpp_result_gen = Rcpp::wrap(decodeColumnTextNative(values, decoderSnapshotJson));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_cleanUp", (DL_FUNC) &_jaspSyntax_cleanUp, 0},
@@ -175,6 +197,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_analysisOptionsFromJaspFile", (DL_FUNC) &_jaspSyntax_analysisOptionsFromJaspFile, 2},
     {"_jaspSyntax_generateAnalysisWrapper", (DL_FUNC) &_jaspSyntax_generateAnalysisWrapper, 2},
     {"_jaspSyntax_getVariableNames", (DL_FUNC) &_jaspSyntax_getVariableNames, 0},
+    {"_jaspSyntax_columnDecoderSnapshotNative", (DL_FUNC) &_jaspSyntax_columnDecoderSnapshotNative, 0},
+    {"_jaspSyntax_decodeColumnTextNative", (DL_FUNC) &_jaspSyntax_decodeColumnTextNative, 2},
     {NULL, NULL, 0}
 };
 

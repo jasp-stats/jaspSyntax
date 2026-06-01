@@ -181,13 +181,15 @@
 .runBridgeSubprocess <- function(task, target, input, failureLabel) {
   stdoutPath <- tempfile(paste0("jaspSyntax_", task, "_"), fileext = ".out")
   stderrPath <- tempfile(paste0("jaspSyntax_", task, "_"), fileext = ".err")
-  on.exit(unlink(c(stdoutPath, stderrPath)), add = TRUE)
+  resultPath <- tempfile(paste0("jaspSyntax_", task, "_"), fileext = ".rds")
+  on.exit(unlink(c(stdoutPath, stderrPath, resultPath)), add = TRUE)
   packageSpec <- .bridgeSubprocessPackageSpec()
+  launchError <- NULL
 
-  result <- tryCatch(
+  tryCatch(
     callr::r(
-      func = function(target, input, packageSpec, loadPackage) {
-        tryCatch(
+      func = function(target, input, packageSpec, loadPackage, resultPath) {
+        result <- tryCatch(
           {
             loadPackage(packageSpec)
             do.call(getNamespace("jaspSyntax")[[target]], input)
@@ -196,12 +198,15 @@
             structure(list(message = conditionMessage(e)), class = "jaspSyntax_subprocess_error")
           }
         )
+        saveRDS(result, resultPath)
+        invisible(NULL)
       },
       args = list(
         target = target,
         input = input,
         packageSpec = packageSpec,
-        loadPackage = .bridgeSubprocessPackageLoader()
+        loadPackage = .bridgeSubprocessPackageLoader(),
+        resultPath = resultPath
       ),
       libpath = .libPaths(),
       stdout = stdoutPath,
@@ -211,12 +216,23 @@
       error = "error"
     ),
     error = function(e) {
-      structure(list(message = conditionMessage(e)), class = "jaspSyntax_subprocess_error")
+      launchError <<- e
+      NULL
     }
   )
 
   output <- .readBridgeSubprocessOutput(stdoutPath, stderrPath)
   outputSuffix <- .bridgeSubprocessOutputSuffix(output)
+  result <- if (file.exists(resultPath)) {
+    readRDS(resultPath)
+  } else {
+    message <- if (!is.null(launchError)) {
+      conditionMessage(launchError)
+    } else {
+      "subprocess did not return a result"
+    }
+    structure(list(message = message), class = "jaspSyntax_subprocess_error")
+  }
 
   if (inherits(result, "jaspSyntax_subprocess_error")) {
     stop(

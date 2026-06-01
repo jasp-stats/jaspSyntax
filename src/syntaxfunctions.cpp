@@ -402,5 +402,58 @@ Rcpp::List getVariableNames()
 	return result;
 }
 
+// [[Rcpp::export]]
+String columnDecoderSnapshotNative()
+{
+	return callBridgeOrStop("syntaxBridgeColumnDecoderSnapshot", []() {
+		return syntaxBridgeColumnDecoderSnapshot();
+	});
+}
+
+// [[Rcpp::export]]
+Rcpp::CharacterVector decodeColumnTextNative(Rcpp::CharacterVector values, String decoderSnapshotJson)
+{
+	Json::Value input(Json::arrayValue);
+	for (R_xlen_t i = 0; i < values.size(); ++i)
+	{
+		Rcpp::String value = values[i];
+		if (value == NA_STRING)
+			input.append(Json::Value());
+		else
+			input.append(std::string(value.get_cstring()));
+	}
+
+	const std::string inputJson = input.toStyledString();
+	const std::string snapshotJson = std::string(decoderSnapshotJson.get_cstring());
+	Json::Value decoded = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeDecodeColumnText", [&]() {
+			return syntaxBridgeDecodeColumnText(inputJson.c_str(), snapshotJson.c_str());
+		}),
+		"syntaxBridgeDecodeColumnText"
+	);
+
+	if (decoded.isObject() && decoded.isMember("ok") && !decoded["ok"].asBool())
+	{
+		std::string error = decoded.isMember("error") ? decoded["error"].asString() : "unknown error";
+		Rcpp::stop("syntaxBridgeDecodeColumnText failed: %s", error.c_str());
+	}
+
+	if (!decoded.isArray())
+		Rcpp::stop("syntaxBridgeDecodeColumnText returned a non-array JSON value.");
+
+	Rcpp::CharacterVector result(decoded.size());
+	for (Json::ArrayIndex i = 0; i < decoded.size(); ++i)
+	{
+		if (decoded[i].isNull())
+			result[i] = NA_STRING;
+		else if (decoded[i].isString())
+			result[i] = decoded[i].asCString();
+		else
+			Rcpp::stop("syntaxBridgeDecodeColumnText returned a non-string value.");
+	}
+
+	return result;
+}
+
 
 

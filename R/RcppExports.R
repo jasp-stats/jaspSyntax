@@ -57,3 +57,11 @@ getVariableNames <- function() {
     .Call(`_jaspSyntax_getVariableNames`)
 }
 
+columnDecoderSnapshotNative <- function() {
+    .Call(`_jaspSyntax_columnDecoderSnapshotNative`)
+}
+
+decodeColumnTextNative <- function(values, decoderSnapshotJson) {
+    .Call(`_jaspSyntax_decodeColumnTextNative`, values, decoderSnapshotJson)
+}
+
