@@ -5,8 +5,9 @@
 #' native dataset changes.
 #'
 #' @param columnMapping Optional named character vector mapping encoded column
-#'   tokens to decoded user-facing names. This is mainly for tests and for
-#'   callers that already captured the mapping before native state changed.
+#'   tokens to decoded user-facing names. When supplied, the mapping is
+#'   serialized into a native decoder snapshot; token replacement still happens
+#'   in SyntaxInterface.
 #'
 #' @return A serializable column decoder object.
 #'
@@ -36,15 +37,19 @@ decodeColumnText <- function(text, decoderSnapshot = NULL) {
   if (!is.character(text)) {
     stop("`text` must be a character vector", call. = FALSE)
   }
+  if (!.containsEncodedBridgeColumnTokens(text)) {
+    return(text)
+  }
 
   snapshotJson <- .columnDecoderSnapshotJson(decoderSnapshot)
   decoded <- tryCatch(
     decodeColumnTextNative(text, snapshotJson),
     error = function(e) {
-      if (.hasColumnDecoderFallback(decoderSnapshot)) {
-        return(.decodeColumnTextFallback(text, decoderSnapshot))
-      }
-      stop(e)
+      stop(
+        "Native column decoder failed: ",
+        conditionMessage(e),
+        call. = FALSE
+      )
     }
   )
   if (!is.character(decoded) || length(decoded) != length(text)) {
@@ -132,34 +137,10 @@ decodeColumnText <- function(text, decoderSnapshot = NULL) {
   decodeColumnText(text, .columnDecoderSnapshotFromMapping(columnMapping))
 }
 
-.decodeColumnTextFallback <- function(text, decoderSnapshot = NULL) {
-  mapping <- .columnDecoderSnapshotMapping(decoderSnapshot)
-  if (length(mapping) == 0L) {
-    return(text)
+.containsEncodedBridgeColumnTokens <- function(text) {
+  if (!is.character(text) || length(text) == 0L) {
+    return(FALSE)
   }
 
-  tokens <- names(mapping)
-  tokens <- tokens[order(nchar(tokens), decreasing = TRUE)]
-  for (token in tokens) {
-    text <- gsub(token, unname(mapping[[token]]), text, fixed = TRUE)
-  }
-
-  text
-}
-
-.hasColumnDecoderFallback <- function(decoderSnapshot = NULL) {
-  inherits(decoderSnapshot, "jaspSyntaxColumnDecoder") ||
-    (is.character(decoderSnapshot) && !is.null(names(decoderSnapshot)))
-}
-
-.columnDecoderSnapshotMapping <- function(decoderSnapshot = NULL) {
-  if (inherits(decoderSnapshot, "jaspSyntaxColumnDecoder")) {
-    return(.validateAnalysisResultColumnMapping(decoderSnapshot[["columns"]]))
-  }
-
-  if (is.character(decoderSnapshot) && !is.null(names(decoderSnapshot))) {
-    return(.validateAnalysisResultColumnMapping(decoderSnapshot))
-  }
-
-  stats::setNames(character(), character())
+  any(grepl("(JaspColumn_[[:alnum:]_]+_Encoded|jaspColumn[0-9]+)", text, perl = TRUE), na.rm = TRUE)
 }

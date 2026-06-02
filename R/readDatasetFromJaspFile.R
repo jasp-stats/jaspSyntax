@@ -198,8 +198,8 @@
 #' Decode Native JASP Column Names
 #'
 #' Decodes column names using the native bridge decoder installed by
-#' SyntaxInterface. When the bridge does not expose a decoder, the default is to
-#' return names unchanged so callers can still operate on non-encoded inputs.
+#' SyntaxInterface. Raw/non-encoded names are returned unchanged; encoded bridge
+#' names require a working native decoder.
 #'
 #' @param columnNames Character vector of column names.
 #' @param strict Whether to fail when an encoded bridge name cannot be decoded.
@@ -220,64 +220,30 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
   }
 
   decodedNames <- columnNames
-  nativeError <- NULL
   nativeDecoded <- tryCatch(
     decodeColumnText(columnNames[encoded]),
     error = function(e) {
-      nativeError <<- e
-      NULL
+      stop(
+        "jaspSyntax bridge could not decode native column names: ",
+        conditionMessage(e),
+        call. = FALSE
+      )
     }
   )
 
-  nativeLeftEncoded <- FALSE
-  if (is.character(nativeDecoded) && length(nativeDecoded) == sum(encoded)) {
-    decodedNames[encoded] <- nativeDecoded
-    nativeLeftEncoded <- any(.isEncodedBridgeColumnName(decodedNames[encoded]))
-    if (!strict || !any(.isEncodedBridgeColumnName(decodedNames[encoded]))) {
-      return(decodedNames)
-    }
-  }
-
-  decodeName <- get0(".decodeColNamesStrict", envir = .GlobalEnv, inherits = FALSE)
-  useLegacyDecoder <- is.function(decodeName) &&
-    (!is.null(nativeError) || (nativeLeftEncoded && !.currentColumnDecoderHasMappings()))
-  if (useLegacyDecoder) {
-    decodedNames[encoded] <- vapply(columnNames[encoded], function(columnName) {
-      tryCatch(
-        {
-          decoded <- as.character(decodeName(columnName))
-          if (length(decoded) != 1L || is.na(decoded)) {
-            stop("decoder returned an empty value")
-          }
-          decoded
-        },
-        error = function(e) {
-          if (strict) {
-            stop(
-              "Could not decode column name `", columnName, "`: ",
-              conditionMessage(e),
-              call. = FALSE
-            )
-          }
-          columnName
-        }
-      )
-    }, character(1L), USE.NAMES = FALSE)
-    return(decodedNames)
-  }
-
-  if (!is.null(nativeError) && strict) {
+  if (!is.character(nativeDecoded) || length(nativeDecoded) != sum(encoded)) {
     stop(
-      "jaspSyntax bridge could not decode native column names: ",
-      conditionMessage(nativeError),
+      "Native column decoder returned an invalid column-name result.",
       call. = FALSE
     )
   }
 
-  if (strict && any(.isEncodedBridgeColumnName(decodedNames[encoded]))) {
-    failed <- columnNames[encoded][.isEncodedBridgeColumnName(decodedNames[encoded])][[1L]]
+  decodedNames[encoded] <- nativeDecoded
+  stillEncoded <- .isEncodedBridgeColumnName(decodedNames[encoded])
+  if (any(stillEncoded)) {
+    failed <- columnNames[encoded][stillEncoded][[1L]]
     stop(
-      "Could not decode column name `", failed, "` with the native column decoder.",
+      "Native column decoder left encoded column name `", failed, "` unchanged.",
       call. = FALSE
     )
   }
@@ -285,47 +251,21 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
   decodedNames
 }
 
-.currentColumnDecoderHasMappings <- function() {
-  snapshot <- tryCatch(columnDecoderSnapshot(), error = function(e) NULL)
-  inherits(snapshot, "jaspSyntaxColumnDecoder") && length(snapshot[["columns"]]) > 0L
-}
-
 .decodeColumnNamesWithMapping <- function(columnNames, columnMapping) {
   if (!is.character(columnNames) || length(columnNames) == 0L) {
     return(columnNames)
   }
 
-  tryCatch(
-    .decodeColumnTextWithMapping(columnNames, columnMapping),
-    error = function(e) {
-      decoded <- unname(columnMapping[columnNames])
-      matched <- !is.na(decoded)
-      out <- columnNames
-      out[matched] <- decoded[matched]
-      out
-    }
-  )
+  .decodeColumnTextWithMapping(columnNames, columnMapping)
 }
 
 .encodedColumnNamesFromCurrentDecoder <- function() {
-  snapshot <- tryCatch(columnDecoderSnapshot(), error = function(e) NULL)
+  snapshot <- columnDecoderSnapshot()
   if (inherits(snapshot, "jaspSyntaxColumnDecoder") && length(snapshot[["columns"]]) > 0L) {
     return(names(snapshot[["columns"]]))
   }
 
-  decodedNames <- readDatasetHeader(decode = FALSE)$encodedName
-  encodeFunc <- get0(".encodeColNamesStrict", envir = .GlobalEnv, inherits = FALSE)
-  if (!is.function(encodeFunc) || length(decodedNames) == 0L) {
-    return(decodedNames)
-  }
-
-  tryCatch(
-    vapply(decodedNames, function(name) {
-      encoded <- encodeFunc(name)
-      if (is.character(encoded) && length(encoded) == 1L && nzchar(encoded)) encoded else name
-    }, character(1L), USE.NAMES = FALSE),
-    error = function(e) decodedNames
-  )
+  readDatasetHeader(decode = FALSE)$encodedName
 }
 
 .isEncodedBridgeColumnName <- function(columnNames) {

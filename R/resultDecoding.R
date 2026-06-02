@@ -9,7 +9,8 @@
 #'   bridge if available.
 #' @param columnMapping Optional named character vector mapping encoded native
 #'   column names to decoded user-facing column names. Supplying this avoids a
-#'   late native decoder call after analysis execution.
+#'   late native decoder snapshot call after analysis execution; replacement is
+#'   still performed by the native decoder.
 #'
 #' @return The result payload with decoded column names and factor values.
 #'
@@ -39,10 +40,7 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
   }
 
   if (is.null(columnMapping) && is.data.frame(requestedDataset)) {
-    columnMapping <- tryCatch(
-      get("columnMapping", envir = asNamespace("jaspSyntax"))(names(requestedDataset), strict = FALSE),
-      error = function(e) NULL
-    )
+    columnMapping <- get("columnMapping", envir = asNamespace("jaspSyntax"))(names(requestedDataset), strict = FALSE)
   }
 
   columnDecoder <- .analysisResultColumnDecoder(columnMapping)
@@ -67,10 +65,7 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
     }
 
     valueMap <- stats::setNames(levels(column), as.character(seq_along(levels(column))))
-    decodedName <- tryCatch(
-      .decodeAnalysisResultColumnNames(columnName, columnDecodeContext),
-      error = function(e) columnName
-    )
+    decodedName <- .decodeAnalysisResultColumnNames(columnName, columnDecodeContext)
     columnKeys <- unique(c(
       columnName,
       decodedName,
@@ -92,10 +87,11 @@ decodeAnalysisResults <- function(results, requestedDataset = NULL,
 }
 
 .analysisResultColumnDecoder <- function(columnMapping = NULL) {
-  tryCatch(
-    columnDecoderSnapshot(columnMapping),
-    error = function(e) NULL
-  )
+  if (is.null(columnMapping)) {
+    return(NULL)
+  }
+
+  columnDecoderSnapshot(columnMapping)
 }
 
 .decodeAnalysisResultObject <- function(x, fieldName = NULL, decodeContext) {
