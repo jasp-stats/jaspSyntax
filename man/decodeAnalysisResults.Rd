@@ -4,7 +4,11 @@
 \alias{decodeAnalysisResults}
 \title{Decode JASP Analysis Result Payloads}
 \usage{
-decodeAnalysisResults(results, requestedDataset = NULL, columnMapping = NULL)
+decodeAnalysisResults(
+  results,
+  requestedDataset = NULL,
+  columnEncoderContext = NULL
+)
 }
 \arguments{
 \item{results}{A result payload list, typically decoded from jaspResults JSON.}
@@ -13,14 +17,14 @@ decodeAnalysisResults(results, requestedDataset = NULL, columnMapping = NULL)
 source. When omitted, the current native requested dataset is read from the
 bridge if available.}
 
-\item{columnMapping}{Optional named character vector mapping encoded native
-column names to decoded user-facing column names. Supplying this avoids a
-late native decoder call after analysis execution.}
+\item{columnEncoderContext}{Optional context returned by
+\code{columnEncoderContext()}. Supplying it lets result replay decode with the
+dataset/module state that created the result even after native state changes.}
 }
 \value{
 The result payload with decoded column names and factor values.
 }
 \description{
-Decodes native column-name tokens and factor value tokens in analysis results
-using the current SyntaxInterface dataset state.
+Decodes native column-name tokens through SyntaxInterface and factor value
+tokens from the requested dataset used by the analysis.
 }

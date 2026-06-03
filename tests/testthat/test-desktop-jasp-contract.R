@@ -127,10 +127,12 @@ test_that("native and R bridge exports keep the expected consumer formals", {
   expect_named(formals(jaspSyntax::readRequestedDataset), c("decode", "normalize"))
   expect_named(formals(jaspSyntax::readDatasetHeader), "decode")
   expect_named(formals(jaspSyntax::decodeColumnNames), c("columnNames", "strict"))
-  expect_named(formals(jaspSyntax::columnDecoderSnapshot), "columnMapping")
-  expect_named(formals(jaspSyntax::decodeColumnText), c("text", "decoderSnapshot"))
-  expect_named(formals(jaspSyntax::decodeAnalysisResults), c("results", "requestedDataset", "columnMapping"))
-  expect_named(formals(jaspSyntax::columnMapping), c("encodedColumnNames", "strict"))
+  expect_true(is.null(formals(jaspSyntax::columnEncoderContext)) ||
+    identical(names(formals(jaspSyntax::columnEncoderContext)), character(0)))
+  expect_named(formals(jaspSyntax::decodeColumnText), c("text", "encoderContext"))
+  expect_named(formals(jaspSyntax::decodeAnalysisResults), c("results", "requestedDataset", "columnEncoderContext"))
+  expect_false("columnMapping" %in% getNamespaceExports("jaspSyntax"))
+  expect_false("columnDecoderSnapshot" %in% getNamespaceExports("jaspSyntax"))
   expect_named(
     formals(jaspSyntax::readAnalysisOptionsFromJaspFile),
     c("jaspFilePath", "modulePath", "runtime", "includeMeta", "includeTypeOptions", "isolated")

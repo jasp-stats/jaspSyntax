@@ -117,7 +117,7 @@
 }
 
 .bridgeSubprocessPackageLoader <- function() {
-  function(packageSpec) {
+  loader <- function(packageSpec) {
     pathEntries <- function(path = Sys.getenv("PATH", unset = "")) {
       entries <- strsplit(path, .Platform$path.sep, fixed = TRUE)[[1L]]
       normalizePath(entries[nzchar(entries)], winslash = "/", mustWork = FALSE)
@@ -146,10 +146,13 @@
           character(0)
         }
         buildDirs <- buildDirs[dir.exists(buildDirs)]
-        Sys.setenv(PATH = paste(unique(c(dllDirs, buildDirs, currentPathEntries)), collapse = .Platform$path.sep))
+        Sys.setenv(PATH = paste(unique(c(buildDirs, dllDirs, currentPathEntries)), collapse = .Platform$path.sep))
         message("jaspSyntax subprocess source package: ", packagePath)
         message("jaspSyntax subprocess DLL dirs: ", paste(dllDirs, collapse = ";"))
-        message("jaspSyntax subprocess PATH head: ", paste(head(strsplit(Sys.getenv("PATH"), .Platform$path.sep, fixed = TRUE)[[1L]], 8L), collapse = ";"))
+        if (length(buildDirs) > 0L) {
+          message("jaspSyntax subprocess build DLL dirs: ", paste(buildDirs, collapse = ";"))
+        }
+        message("jaspSyntax subprocess PATH head: ", paste(utils::head(strsplit(Sys.getenv("PATH"), .Platform$path.sep, fixed = TRUE)[[1L]], 8L), collapse = ";"))
       }
 
       if (!requireNamespace("pkgload", quietly = TRUE)) {
@@ -161,6 +164,26 @@
       suppressPackageStartupMessages(library(jaspSyntax))
     }
   }
+  environment(loader) <- baseenv()
+  loader
+}
+
+.bridgeSubprocessRunner <- function() {
+  runner <- function(target, input, packageSpec, loadPackage, resultPath) {
+    result <- tryCatch(
+      {
+        loadPackage(packageSpec)
+        do.call(getNamespace("jaspSyntax")[[target]], input)
+      },
+      error = function(e) {
+        structure(list(message = conditionMessage(e)), class = "jaspSyntax_subprocess_error")
+      }
+    )
+    saveRDS(result, resultPath)
+    invisible(NULL)
+  }
+  environment(runner) <- baseenv()
+  runner
 }
 
 .readBridgeSubprocessOutput <- function(stdoutPath, stderrPath) {
@@ -188,19 +211,7 @@
 
   tryCatch(
     callr::r(
-      func = function(target, input, packageSpec, loadPackage, resultPath) {
-        result <- tryCatch(
-          {
-            loadPackage(packageSpec)
-            do.call(getNamespace("jaspSyntax")[[target]], input)
-          },
-          error = function(e) {
-            structure(list(message = conditionMessage(e)), class = "jaspSyntax_subprocess_error")
-          }
-        )
-        saveRDS(result, resultPath)
-        invisible(NULL)
-      },
+      func = .bridgeSubprocessRunner(),
       args = list(
         target = target,
         input = input,

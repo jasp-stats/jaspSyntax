@@ -403,15 +403,15 @@ Rcpp::List getVariableNames()
 }
 
 // [[Rcpp::export]]
-String columnDecoderSnapshotNative()
+String columnEncoderContextNative()
 {
-	return callBridgeOrStop("syntaxBridgeColumnDecoderSnapshot", []() {
-		return syntaxBridgeColumnDecoderSnapshot();
+	return callBridgeOrStop("syntaxBridgeColumnEncoderContext", []() {
+		return syntaxBridgeColumnEncoderContext();
 	});
 }
 
 // [[Rcpp::export]]
-Rcpp::CharacterVector decodeColumnTextNative(Rcpp::CharacterVector values, String decoderSnapshotJson)
+Rcpp::CharacterVector decodeColumnTextNative(Rcpp::CharacterVector values, String encoderContextJson)
 {
 	Json::Value input(Json::arrayValue);
 	for (R_xlen_t i = 0; i < values.size(); ++i)
@@ -424,10 +424,10 @@ Rcpp::CharacterVector decodeColumnTextNative(Rcpp::CharacterVector values, Strin
 	}
 
 	const std::string inputJson = input.toStyledString();
-	const std::string snapshotJson = std::string(decoderSnapshotJson.get_cstring());
+	const std::string contextJson = std::string(encoderContextJson.get_cstring());
 	Json::Value decoded = parseBridgeJsonOrStop(
 		callBridgeOrStop("syntaxBridgeDecodeColumnText", [&]() {
-			return syntaxBridgeDecodeColumnText(inputJson.c_str(), snapshotJson.c_str());
+			return syntaxBridgeDecodeColumnText(inputJson.c_str(), contextJson.c_str());
 		}),
 		"syntaxBridgeDecodeColumnText"
 	);

@@ -1,39 +1,30 @@
-#' Capture a Native Column Decoder
+#' Capture a Native Column Encoder Context
 #'
-#' Captures the current SyntaxInterface `ColumnEncoder` decode mapping in a
-#' serializable object. The captured decoder can be reused after the active
-#' native dataset changes.
+#' Captures the source state needed by SyntaxInterface to reconstruct the native
+#' `ColumnEncoder`: dataset column names/types and extra QML option encodings.
+#' The context can be reused after the active native dataset changes.
 #'
-#' @param columnMapping Optional named character vector mapping encoded column
-#'   tokens to decoded user-facing names. When supplied, the mapping is
-#'   serialized into a native decoder snapshot; token replacement still happens
-#'   in SyntaxInterface.
-#'
-#' @return A serializable column decoder object.
+#' @return A serializable column encoder context.
 #'
 #' @export
-columnDecoderSnapshot <- function(columnMapping = NULL) {
-  if (!is.null(columnMapping)) {
-    return(.columnDecoderSnapshotFromMapping(columnMapping))
-  }
-
-  rawSnapshot <- columnDecoderSnapshotNative()
-  .columnDecoderSnapshotFromJson(rawSnapshot)
+columnEncoderContext <- function() {
+  rawContext <- columnEncoderContextNative()
+  .columnEncoderContextFromJson(rawContext)
 }
 
-#' Decode Text With a Native Column Decoder
+#' Decode Text With a Native Column Encoder Context
 #'
 #' Decodes embedded JASP column tokens using SyntaxInterface's native
 #' `ColumnEncoder` replacement rules.
 #'
 #' @param text Character vector to decode.
-#' @param decoderSnapshot Optional decoder returned by `columnDecoderSnapshot()`.
-#'   When omitted, the current native bridge decoder is used.
+#' @param encoderContext Optional context returned by `columnEncoderContext()`.
+#'   When omitted, the current native bridge encoder state is used.
 #'
 #' @return A character vector with native column tokens decoded.
 #'
 #' @export
-decodeColumnText <- function(text, decoderSnapshot = NULL) {
+decodeColumnText <- function(text, encoderContext = NULL) {
   if (!is.character(text)) {
     stop("`text` must be a character vector", call. = FALSE)
   }
@@ -41,9 +32,9 @@ decodeColumnText <- function(text, decoderSnapshot = NULL) {
     return(text)
   }
 
-  snapshotJson <- .columnDecoderSnapshotJson(decoderSnapshot)
+  contextJson <- .columnEncoderContextJson(encoderContext)
   decoded <- tryCatch(
-    decodeColumnTextNative(text, snapshotJson),
+    decodeColumnTextNative(text, contextJson),
     error = function(e) {
       stop(
         "Native column decoder failed: ",
@@ -60,81 +51,93 @@ decodeColumnText <- function(text, decoderSnapshot = NULL) {
   decoded
 }
 
-.columnDecoderSnapshotFromMapping <- function(columnMapping) {
-  columnMapping <- .validateAnalysisResultColumnMapping(columnMapping)
-  if (is.null(columnMapping)) {
-    columnMapping <- stats::setNames(character(), character())
+.columnEncoderContextFromJson <- function(rawContext) {
+  if (!is.character(rawContext) || length(rawContext) != 1L || is.na(rawContext)) {
+    stop("Native column encoder context must be a single JSON string.", call. = FALSE)
   }
 
-  columns <- unname(Map(
-    function(encoded, decoded) list(encoded = encoded, decoded = decoded),
-    names(columnMapping),
-    unname(columnMapping)
-  ))
-
-  rawSnapshot <- as.character(jsonlite::toJSON(
-    list(version = 1L, columns = columns),
-    auto_unbox = TRUE,
-    null = "null"
-  ))
-
-  .newColumnDecoderSnapshot(rawSnapshot, columnMapping)
-}
-
-.columnDecoderSnapshotFromJson <- function(rawSnapshot) {
-  if (!is.character(rawSnapshot) || length(rawSnapshot) != 1L || is.na(rawSnapshot)) {
-    stop("Native column decoder snapshot must be a single JSON string.", call. = FALSE)
-  }
-
-  parsed <- jsonlite::fromJSON(rawSnapshot, simplifyVector = FALSE)
-  columns <- parsed[["columns"]]
-  if (is.null(columns) || length(columns) == 0L) {
-    return(.newColumnDecoderSnapshot(
-      rawSnapshot,
-      stats::setNames(character(), character())
-    ))
-  }
-
-  encoded <- vapply(columns, `[[`, character(1L), "encoded", USE.NAMES = FALSE)
-  decoded <- vapply(columns, `[[`, character(1L), "decoded", USE.NAMES = FALSE)
-  mapping <- stats::setNames(decoded, encoded)
-
-  .newColumnDecoderSnapshot(rawSnapshot, mapping)
-}
-
-.newColumnDecoderSnapshot <- function(rawSnapshot, columnMapping) {
-  structure(
-    list(
-      version = 1L,
-      columns = .validateAnalysisResultColumnMapping(columnMapping),
-      native = rawSnapshot
-    ),
-    class = "jaspSyntaxColumnDecoder"
+  parsed <- jsonlite::fromJSON(rawContext, simplifyVector = FALSE)
+  .newColumnEncoderContext(
+    rawContext = rawContext,
+    columns = .normalizeColumnEncoderContextColumns(parsed[["columns"]]),
+    extra = .normalizeColumnEncoderContextColumns(parsed[["extra"]])
   )
 }
 
-.columnDecoderSnapshotJson <- function(decoderSnapshot = NULL) {
-  if (is.null(decoderSnapshot)) {
+.newColumnEncoderContext <- function(rawContext = NULL, columns = list(), extra = list()) {
+  columns <- .normalizeColumnEncoderContextColumns(columns)
+  extra <- .normalizeColumnEncoderContextColumns(extra)
+
+  if (is.null(rawContext)) {
+    rawContext <- as.character(jsonlite::toJSON(
+      list(version = 1L, columns = columns, extra = extra),
+      auto_unbox = TRUE,
+      null = "null"
+    ))
+  }
+
+  structure(
+    list(
+      version = 1L,
+      columns = columns,
+      extra = extra,
+      native = rawContext
+    ),
+    class = "jaspSyntaxColumnEncoderContext"
+  )
+}
+
+.normalizeColumnEncoderContextColumns <- function(columns = NULL) {
+  if (is.null(columns) || length(columns) == 0L) {
+    return(list())
+  }
+
+  if (is.data.frame(columns)) {
+    columns <- split(columns, seq_len(nrow(columns)))
+  }
+
+  if (!is.list(columns)) {
+    stop("Column encoder context columns must be a list.", call. = FALSE)
+  }
+
+  lapply(columns, function(column) {
+    if (!is.list(column) || is.null(column[["name"]]) || is.null(column[["type"]])) {
+      stop("Column encoder context entries must contain `name` and `type`.", call. = FALSE)
+    }
+
+    name <- column[["name"]]
+    type <- column[["type"]]
+    if (!is.character(name) || length(name) != 1L || is.na(name) || !nzchar(name) ||
+        !is.character(type) || length(type) != 1L || is.na(type) || !nzchar(type)) {
+      stop("Column encoder context `name` and `type` entries must be non-empty strings.", call. = FALSE)
+    }
+
+    list(name = name, type = type)
+  })
+}
+
+.columnEncoderContextJson <- function(encoderContext = NULL) {
+  if (is.null(encoderContext)) {
     return("")
   }
 
-  if (inherits(decoderSnapshot, "jaspSyntaxColumnDecoder")) {
-    return(decoderSnapshot[["native"]])
+  if (inherits(encoderContext, "jaspSyntaxColumnEncoderContext")) {
+    return(encoderContext[["native"]])
   }
 
-  if (is.character(decoderSnapshot) && length(decoderSnapshot) == 1L && !is.na(decoderSnapshot)) {
-    return(decoderSnapshot)
+  if (is.character(encoderContext) && length(encoderContext) == 1L && !is.na(encoderContext)) {
+    return(encoderContext)
   }
 
-  if (is.character(decoderSnapshot) && !is.null(names(decoderSnapshot))) {
-    return(.columnDecoderSnapshotFromMapping(decoderSnapshot)[["native"]])
+  if (is.list(encoderContext) &&
+      (!is.null(encoderContext[["columns"]]) || !is.null(encoderContext[["extra"]]))) {
+    return(.newColumnEncoderContext(
+      columns = encoderContext[["columns"]],
+      extra = encoderContext[["extra"]]
+    )[["native"]])
   }
 
-  stop("`decoderSnapshot` must be a native decoder snapshot or named column mapping.", call. = FALSE)
-}
-
-.decodeColumnTextWithMapping <- function(text, columnMapping) {
-  decodeColumnText(text, .columnDecoderSnapshotFromMapping(columnMapping))
+  stop("`encoderContext` must be a native column encoder context.", call. = FALSE)
 }
 
 .containsEncodedBridgeColumnTokens <- function(text) {
@@ -142,5 +145,9 @@ decodeColumnText <- function(text, decoderSnapshot = NULL) {
     return(FALSE)
   }
 
-  any(grepl("(JaspColumn_[[:alnum:]_]+_Encoded|jaspColumn[0-9]+)", text, perl = TRUE), na.rm = TRUE)
+  any(grepl(
+    "(JaspColumn_[[:alnum:]_]+_Encoded|JaspExtraOptions_[[:alnum:]_]+_Encoded|jaspColumn[0-9]+)",
+    text,
+    perl = TRUE
+  ), na.rm = TRUE)
 }

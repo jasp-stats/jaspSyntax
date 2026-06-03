@@ -56,7 +56,7 @@ localNamespaceBinding <- function(name, value, namespace) {
 localNativeColumnTextDecoder <- function(mapping) {
   localNamespaceBinding(
     "decodeColumnText",
-    function(text, decoderSnapshot = NULL) {
+    function(text, encoderContext = NULL) {
       out <- text
       tokens <- names(mapping)
       tokens <- tokens[order(nchar(tokens), decreasing = TRUE)]
@@ -72,7 +72,7 @@ localNativeColumnTextDecoder <- function(mapping) {
 localFailingColumnTextDecoder <- function(message = "native decoder unavailable") {
   localNamespaceBinding(
     "decodeColumnText",
-    function(text, decoderSnapshot = NULL) {
+    function(text, encoderContext = NULL) {
       stop(message, call. = FALSE)
     },
     asNamespace("jaspSyntax")
@@ -91,10 +91,6 @@ test_that("decodeColumnNames delegates to the native bridge decoder", {
   expect_equal(
     jaspSyntax::decodeColumnNames(c("JaspColumn_1_Encoded", "JaspColumn_2_Encoded")),
     c("raw score", "group")
-  )
-  expect_equal(
-    jaspSyntax::columnMapping(c("JaspColumn_1_Encoded", "JaspColumn_2_Encoded")),
-    c(JaspColumn_1_Encoded = "raw score", JaspColumn_2_Encoded = "group")
   )
 })
 
@@ -117,11 +113,6 @@ test_that("decodeColumnNames errors when native decoding is unavailable", {
     "native decoder unavailable",
     fixed = TRUE
   )
-  expect_error(
-    jaspSyntax::columnMapping(c("JaspColumn_1_Encoded", "JaspColumn_2_Encoded")),
-    "native decoder unavailable",
-    fixed = TRUE
-  )
 })
 
 test_that("decodeColumnNames fails when the decoder is unavailable", {
@@ -138,11 +129,6 @@ test_that("decodeColumnNames fails when the decoder is unavailable", {
     "native decoder unavailable",
     fixed = TRUE
   )
-  expect_error(
-    jaspSyntax::columnMapping("JaspColumn_1_Encoded", strict = TRUE),
-    "native decoder unavailable",
-    fixed = TRUE
-  )
 })
 
 test_that("decodeColumnNames fails when native decoding leaves encoded names", {
@@ -156,38 +142,71 @@ test_that("decodeColumnNames fails when native decoding leaves encoded names", {
   )
 })
 
-test_that("empty column decoder snapshots do not fall through to live native state", {
-  snapshot <- jaspSyntax::columnDecoderSnapshot(stats::setNames(character(), character()))
+test_that("empty column encoder contexts do not fall through to live native state", {
+  observedContext <- NULL
+  restoreNative <- localNamespaceBinding(
+    "decodeColumnTextNative",
+    function(values, encoderContextJson) {
+      observedContext <<- jsonlite::fromJSON(encoderContextJson, simplifyVector = FALSE)
+      values
+    },
+    asNamespace("jaspSyntax")
+  )
+  on.exit(restoreNative(), add = TRUE)
+
+  context <- jaspSyntax:::.newColumnEncoderContext()
 
   expect_equal(
-    jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", snapshot),
+    jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", context),
     "JaspColumn_1_Encoded"
   )
+  expect_equal(observedContext$columns, list())
 })
 
 test_that("decodeColumnText does not use R mapping replacement when native decoding fails", {
   restoreNative <- localNamespaceBinding(
     "decodeColumnTextNative",
-    function(values, decoderSnapshotJson) {
+    function(values, encoderContextJson) {
       stop("native failure", call. = FALSE)
     },
     asNamespace("jaspSyntax")
   )
   on.exit(restoreNative(), add = TRUE)
 
-  snapshot <- jaspSyntax::columnDecoderSnapshot(c(JaspColumn_1_Encoded = "score"))
+  context <- jaspSyntax:::.newColumnEncoderContext(
+    columns = list(list(name = "score", type = "scale"))
+  )
   expect_error(
-    jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", snapshot),
+    jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", context),
     "native failure",
     fixed = TRUE
   )
+})
+
+test_that("decodeColumnText dispatches extra option tokens to the native decoder", {
+  observed <- NULL
+  restoreNative <- localNamespaceBinding(
+    "decodeColumnTextNative",
+    function(values, encoderContextJson) {
+      observed <<- values
+      gsub("JaspExtraOptions_0_Encoded", "Factor A", values, fixed = TRUE)
+    },
+    asNamespace("jaspSyntax")
+  )
+  on.exit(restoreNative(), add = TRUE)
+
+  expect_equal(
+    jaspSyntax::decodeColumnText("JaspExtraOptions_0_Encoded"),
+    "Factor A"
+  )
+  expect_equal(observed, "JaspExtraOptions_0_Encoded")
 })
 
 test_that("decodeColumnNames does not send raw names to the strict native decoder", {
   observed <- character(0)
   restoreNative <- localNamespaceBinding(
     "decodeColumnText",
-    function(text, decoderSnapshot = NULL) {
+    function(text, encoderContext = NULL) {
       observed <<- c(observed, text)
       out <- text
       out[text == "JaspColumn_1_Encoded"] <- "score"
@@ -319,6 +338,9 @@ test_that("decodeAnalysisResults decodes native column names and factor value to
     c(JaspColumn_1_Encoded = "group")
   )
   on.exit(restoreDecoder(), add = TRUE)
+  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
+    columns = list(list(name = "group", type = "nominal"))
+  )
 
   requestedDataset <- data.frame(
     JaspColumn_1_Encoded = factor(c("control", "treatment")),
@@ -340,7 +362,7 @@ test_that("decodeAnalysisResults decodes native column names and factor value to
   decoded <- jaspSyntax::decodeAnalysisResults(
     results,
     requestedDataset = requestedDataset,
-    columnMapping = c(JaspColumn_1_Encoded = "group")
+    columnEncoderContext = encoderContext
   )
   firstRow <- decoded$results$table$data[[1L]]
 
@@ -349,12 +371,12 @@ test_that("decodeAnalysisResults decodes native column names and factor value to
   expect_equal(firstRow$label, "group")
 })
 
-test_that("decodeAnalysisResults passes captured column mapping to the native decoder", {
-  observedSnapshot <- NULL
+test_that("decodeAnalysisResults passes captured column encoder context to the native decoder", {
+  observedContext <- NULL
   restoreDecoder <- localNamespaceBinding(
     "decodeColumnText",
-    function(text, decoderSnapshot = NULL) {
-      observedSnapshot <<- decoderSnapshot
+    function(text, encoderContext = NULL) {
+      observedContext <<- encoderContext
       out <- text
       out <- gsub("JaspColumn_1_Encoded", "group", out, fixed = TRUE)
       out <- gsub("jaspColumn2", "phase", out, fixed = TRUE)
@@ -363,6 +385,12 @@ test_that("decodeAnalysisResults passes captured column mapping to the native de
     asNamespace("jaspSyntax")
   )
   on.exit(restoreDecoder(), add = TRUE)
+  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
+    columns = list(
+      list(name = "group", type = "nominal"),
+      list(name = "phase", type = "nominal")
+    )
+  )
 
   requestedDataset <- data.frame(
     JaspColumn_1_Encoded = factor(c("control", "treatment")),
@@ -387,7 +415,7 @@ test_that("decodeAnalysisResults passes captured column mapping to the native de
   decoded <- jaspSyntax::decodeAnalysisResults(
     results,
     requestedDataset = requestedDataset,
-    columnMapping = c(JaspColumn_1_Encoded = "group", jaspColumn2 = "phase")
+    columnEncoderContext = encoderContext
   )
   firstRow <- decoded$results$table$data[[1L]]
 
@@ -397,7 +425,7 @@ test_that("decodeAnalysisResults passes captured column mapping to the native de
   expect_equal(firstRow$Interaction, "group:phase")
   expect_equal(firstRow$Note, "The following variables are used: 'group', 'phase'.")
   expect_equal(firstRow$Unmatched, "jaspColumn10")
-  expect_s3_class(observedSnapshot, "jaspSyntaxColumnDecoder")
+  expect_s3_class(observedContext, "jaspSyntaxColumnEncoderContext")
 })
 
 test_that("decodeAnalysisResults maps factor values with decoded requested datasets", {
@@ -405,6 +433,9 @@ test_that("decodeAnalysisResults maps factor values with decoded requested datas
     c(JaspColumn_1_Encoded = "group")
   )
   on.exit(restoreDecoder(), add = TRUE)
+  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
+    columns = list(list(name = "group", type = "nominal"))
+  )
 
   requestedDataset <- data.frame(
     group = factor(c("control", "treatment")),
@@ -423,7 +454,7 @@ test_that("decodeAnalysisResults maps factor values with decoded requested datas
   decoded <- jaspSyntax::decodeAnalysisResults(
     results,
     requestedDataset = requestedDataset,
-    columnMapping = c(JaspColumn_1_Encoded = "group")
+    columnEncoderContext = encoderContext
   )
   firstRow <- decoded$results$table$data[[1L]]
 
@@ -552,6 +583,17 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
       JaspColumn_2_Encoded = "group"
     )
   )
+  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
+    columns = list(
+      list(name = "score", type = "scale"),
+      list(name = "group", type = "nominal")
+    )
+  )
+  restoreContext <- localNamespaceBinding(
+    "columnEncoderContext",
+    function() encoderContext,
+    asNamespace("jaspSyntax")
+  )
   on.exit(restoreClear(), add = TRUE)
   on.exit(restoreLoad(), add = TRUE)
   on.exit(restoreReadQml(), add = TRUE)
@@ -559,6 +601,7 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
   on.exit(restoreRequested(), add = TRUE)
   on.exit(restoreDecoder(), add = TRUE)
   on.exit(restoreNative(), add = TRUE)
+  on.exit(restoreContext(), add = TRUE)
 
   rawDataset <- data.frame(score = c(1, 2), group = c("a", "b"))
   savedOptions <- list(variables = list(value = "score", types = "scale"))
@@ -585,7 +628,8 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
   expect_s3_class(state$resultDecodingDataset$score, "factor")
   expect_equal(levels(state$resultDecodingDataset$score), c("control", "treatment"))
   expect_equal(state$runtimeOptions$variables, "JaspColumn_1_Encoded")
-  expect_equal(state$columnMapping, c(JaspColumn_1_Encoded = "score", JaspColumn_2_Encoded = "group"))
+  expect_s3_class(state$columnEncoderContext, "jaspSyntaxColumnEncoderContext")
+  expect_equal(state$columnEncoderContext$columns, encoderContext$columns)
   expect_s3_class(state, "jaspSyntax_analysis_dataset_state")
 })
 
@@ -805,6 +849,8 @@ test_that("subprocess package loading distinguishes source checkouts from instal
     "jaspSyntax subprocess PATH head",
     fixed = TRUE
   )
+  expect_identical(environment(jaspSyntax:::.bridgeSubprocessPackageLoader()), baseenv())
+  expect_identical(environment(jaspSyntax:::.bridgeSubprocessRunner()), baseenv())
 
   descriptionCandidates <- c(
     file.path(getwd(), "DESCRIPTION"),

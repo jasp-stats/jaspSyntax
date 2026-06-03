@@ -251,49 +251,9 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
   decodedNames
 }
 
-.decodeColumnNamesWithMapping <- function(columnNames, columnMapping) {
-  if (!is.character(columnNames) || length(columnNames) == 0L) {
-    return(columnNames)
-  }
-
-  .decodeColumnTextWithMapping(columnNames, columnMapping)
-}
-
-.encodedColumnNamesFromCurrentDecoder <- function() {
-  snapshot <- columnDecoderSnapshot()
-  if (inherits(snapshot, "jaspSyntaxColumnDecoder") && length(snapshot[["columns"]]) > 0L) {
-    return(names(snapshot[["columns"]]))
-  }
-
-  readDatasetHeader(decode = FALSE)$encodedName
-}
-
 .isEncodedBridgeColumnName <- function(columnNames) {
   grepl("^JaspColumn_[[:alnum:]_]+_Encoded$", columnNames) |
     grepl("^jaspColumn[0-9]+$", columnNames)
-}
-
-#' @rdname decodeColumnNames
-#' @param encodedColumnNames Optional encoded column names. When omitted, the
-#'   current native dataset header is used.
-#'
-#' @return `columnMapping()` returns a named character vector mapping encoded
-#'   names to decoded names.
-#'
-#' @export
-columnMapping <- function(encodedColumnNames = NULL, strict = FALSE) {
-  strict <- .validateFlag(strict, "strict")
-  if (is.null(encodedColumnNames))
-    encodedColumnNames <- .encodedColumnNamesFromCurrentDecoder()
-
-  if (!is.character(encodedColumnNames)) {
-    stop("`encodedColumnNames` must be a character vector", call. = FALSE)
-  }
-
-  stats::setNames(
-    decodeColumnNames(encodedColumnNames, strict = strict),
-    encodedColumnNames
-  )
 }
 
 #' Read the Loaded Native Dataset
@@ -375,8 +335,8 @@ readDatasetHeader <- function(decode = TRUE) {
 #' @inheritParams readLoadedDataset
 #'
 #' @return A list with `loadedDataset`, `requestedDataset`,
-#'   `resultDecodingDataset`, `runtimeOptions`, `columnMapping`, `modulePath`,
-#'   and `analysisName`.
+#'   `resultDecodingDataset`, `runtimeOptions`, `columnEncoderContext`,
+#'   `modulePath`, and `analysisName`.
 #'
 #' @export
 loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NULL,
@@ -416,7 +376,6 @@ loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NUL
 
   loadedRaw <- .readBridgeDataset(".readFullDatasetToEnd", "loaded dataset")
   requestedRaw <- .readBridgeDataset(".readDataSetRequestedNative", "requested dataset")
-  rawColumnNames <- unique(c(names(loadedRaw), names(requestedRaw)))
 
   state <- list(
     loadedDataset = .prepareBridgeDataset(
@@ -435,7 +394,7 @@ loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NUL
       normalize = FALSE
     ),
     runtimeOptions = runtimeOptions,
-    columnMapping = columnMapping(rawColumnNames, strict = decode),
+    columnEncoderContext = columnEncoderContext(),
     modulePath = modulePath,
     analysisName = analysisName
   )
