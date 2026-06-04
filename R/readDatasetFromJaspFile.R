@@ -202,8 +202,9 @@
 #' names require a working native decoder.
 #'
 #' @param columnNames Character vector of column names.
-#' @param strict Whether to fail when an encoded bridge name cannot be decoded.
-#'   Raw/non-encoded names are returned unchanged.
+#' @param strict Compatibility-only flag retained for callers that pass it.
+#'   Encoded bridge names always require native decoding; raw/non-encoded names
+#'   are returned unchanged.
 #'
 #' @return A character vector with decoded names.
 #'

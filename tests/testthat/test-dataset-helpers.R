@@ -131,6 +131,20 @@ test_that("decodeColumnNames fails when the decoder is unavailable", {
   )
 })
 
+test_that("decodeColumnNames strict flag is compatibility-only", {
+  restoreDecoder <- localNativeColumnTextDecoder(c(JaspColumn_1_Encoded = "score"))
+  on.exit(restoreDecoder(), add = TRUE)
+
+  expect_equal(
+    jaspSyntax::decodeColumnNames(c("plain", "JaspColumn_1_Encoded"), strict = FALSE),
+    c("plain", "score")
+  )
+  expect_equal(
+    jaspSyntax::decodeColumnNames(c("plain", "JaspColumn_1_Encoded"), strict = TRUE),
+    c("plain", "score")
+  )
+})
+
 test_that("decodeColumnNames fails when native decoding leaves encoded names", {
   restoreDecoder <- localNativeColumnTextDecoder(stats::setNames(character(), character()))
   on.exit(restoreDecoder(), add = TRUE)
