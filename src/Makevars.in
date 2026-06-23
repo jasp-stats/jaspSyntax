@@ -2,7 +2,7 @@ PKG_CPPFLAGS = -I. @cppflags@
 CXX_STD = CXX20
 JSON_OBJECTS = json/json_reader.o json/json_value.o json/json_writer.o
 OBJECTS = RcppExports.o dataframeimporter.o syntaxfunctions.o $(JSON_OBJECTS)
-PKG_LIBS += -L. @libflags@ @rpathflags@
+PKG_LIBS = -L. @libflags@ @rpathflags@
 
 json/%.o: json/%.cpp
 	$(CXX) $(ALL_CPPFLAGS) $(ALL_CXXFLAGS) -c $< -o $@

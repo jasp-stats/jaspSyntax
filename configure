@@ -294,10 +294,6 @@ SYNTAXINTERFACE_HEADER_ORIGIN="${SYNTAXINTERFACE_HEADER_ORIGIN}" \
 SYNTAXINTERFACE_BINARY_ORIGIN="${SYNTAXINTERFACE_BINARY_ORIGIN}" \
 	"${BASH:-bash}" tools/check-syntaxinterface-symbols.sh "${SYNTAXINTERFACE_HEADER_PATH}" "${SYNTAXINTERFACE_BINARY_PATH}" "src/syntaxfunctions.cpp"
 
-mkdir -p inst/libs
-cp "src/${DLL_NAME}" "inst/libs/${DLL_NAME}"
-cp "src/SyntaxInterface.provenance" "inst/libs/SyntaxInterface.provenance"
-
 PKG_LIBS=-lSyntaxInterface
 
 # Set platform-specific RPATH so jaspSyntax.so can find libSyntaxInterface at runtime
