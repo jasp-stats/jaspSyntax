@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # To manually specify a location for JASP_BUILD_DIR or JASP_SOURCE_DIR do
 #
 # options(configure.vars = c(jaspSyntax = "JASP_SOURCE_DIR='<path>'"))
@@ -17,20 +17,20 @@ SOURCE_BUNDLE_JASP_DESKTOP_SHA=""
 SOURCE_BUNDLE_JASP_SYNTAX_SHA=""
 SOURCE_BUNDLE_QT_VERSION=""
 
-function sourceBundleProvenanceValue() {
-	local FILE_PATH="$1"
-	local KEY="$2"
+sourceBundleProvenanceValue() {
+	_sbpv_path="$1"
+	_sbpv_key="$2"
 
-	if [ -f "${FILE_PATH}" ]; then
-		grep -E "^${KEY}=" "${FILE_PATH}" | head -n 1 | sed -E 's/^[^=]+=//'
+	if [ -f "${_sbpv_path}" ]; then
+		grep -E "^${_sbpv_key}=" "${_sbpv_path}" | head -n 1 | sed 's/^[^=][^=]*=//'
 	fi
 }
 
 
-function downloadFile() {
-	local URL="$1"
-	local OUTPUT="$2"
-	local DOWNLOAD_SUCCESS=1
+downloadFile() {
+	URL="$1"
+	OUTPUT="$2"
+	DOWNLOAD_SUCCESS=1
 
 	if command -v curl >/dev/null 2>&1; then
 		echo "Downloading ${URL}"
@@ -53,7 +53,7 @@ function downloadFile() {
 	return 0
 }
 
-function loadFile() {
+loadFile() {
 	if ! downloadFile "$1/$2" "src/$2"; then
 		printf "Installing jaspSyntax failed because the required file %s is missing.\n\
 Normally this is downloaded automatically if either curl or wget is available, but apparently this failed.\n\
@@ -62,10 +62,10 @@ Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually an
 	fi
 }
 
-function loadReleaseSourceBundle() {
-	local ARCHIVE_PATH="src/${SOURCE_BUNDLE_ASSET}"
-	local EXTRACT_DIR="src/.SyntaxInterface-sources"
-	local FILE_NAME
+loadReleaseSourceBundle() {
+	ARCHIVE_PATH="src/${SOURCE_BUNDLE_ASSET}"
+	EXTRACT_DIR="src/.SyntaxInterface-sources"
+	FILE_NAME
 
 	if ! downloadFile "${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}" "${ARCHIVE_PATH}"; then
 		printf "Installing jaspSyntax failed because the SyntaxInterface source bundle is missing from release %s.\n\
@@ -99,11 +99,11 @@ Set JASP_SOURCE_DIR to a matching jasp-desktop checkout, or publish %s together 
 	SYNTAXINTERFACE_HEADER_ORIGIN="${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}:SyntaxInterface/syntaxbridge_interface.h"
 }
 
-function verifyChecksum() {
+verifyChecksum() {
 	# verifyChecksum <file_path> <asset_name>
 	# Verifies the checksum of <file_path> against SHA256SUMS from the GitHub Release.
-	local FILE_PATH="$1"
-	local ASSET_NAME="$2"
+	_vc_path="$1"
+	_vc_asset="$2"
 
 	if command -v sha256sum >/dev/null 2>&1; then
 		CHECKSUM_CMD="sha256sum"
@@ -114,18 +114,18 @@ function verifyChecksum() {
 		return 0
 	fi
 
-	echo "Verifying checksum for ${ASSET_NAME}..."
+	echo "Verifying checksum for ${_vc_asset}..."
 	if downloadFile "${GITHUB_RELEASE_URL}/SHA256SUMS" "src/SHA256SUMS"; then
-		EXPECTED=$(grep "${ASSET_NAME}" src/SHA256SUMS | awk '{print $1}')
-		ACTUAL=$(${CHECKSUM_CMD} "${FILE_PATH}" | awk '{print $1}')
+		EXPECTED=$(grep "${_vc_asset}" src/SHA256SUMS | awk '{print $1}')
+		ACTUAL=$(${CHECKSUM_CMD} "${_vc_path}" | awk '{print $1}')
 
 		if [ -z "${EXPECTED}" ]; then
-			echo "Warning: no checksum found for ${ASSET_NAME} in SHA256SUMS"
+			echo "Warning: no checksum found for ${_vc_asset} in SHA256SUMS"
 		elif [ "${ACTUAL}" != "${EXPECTED}" ]; then
-			echo "Checksum verification FAILED for ${ASSET_NAME}!"
+			echo "Checksum verification FAILED for ${_vc_asset}!"
 			echo "  Expected: ${EXPECTED}"
 			echo "  Got:      ${ACTUAL}"
-			rm -f "${FILE_PATH}" src/SHA256SUMS
+			rm -f "${_vc_path}" src/SHA256SUMS
 			exit 1
 		else
 			echo "Checksum verified OK"
@@ -136,25 +136,25 @@ function verifyChecksum() {
 	fi
 }
 
-function findRuntimeCandidate() {
-	local FILE_NAME="$1"
+findRuntimeCandidate() {
+	_frc_fname="$1"
 	shift
-	local SOURCE_DIR
-	local CANDIDATE
+	_frc_srcdir=""
+	_frc_candidate=""
 
-	for SOURCE_DIR in "$@"; do
-		if [ -z "${SOURCE_DIR}" ] || [ ! -d "${SOURCE_DIR}" ]; then
+	for _frc_srcdir in "$@"; do
+		if [ -z "${_frc_srcdir}" ] || [ ! -d "${_frc_srcdir}" ]; then
 			continue
 		fi
 
-		if [ -f "${SOURCE_DIR}/${FILE_NAME}" ]; then
-			echo "${SOURCE_DIR}/${FILE_NAME}"
+		if [ -f "${_frc_srcdir}/${_frc_fname}" ]; then
+			echo "${_frc_srcdir}/${_frc_fname}"
 			return 0
 		fi
 
-		CANDIDATE=$(find "${SOURCE_DIR}" -maxdepth 1 -type f -iname "${FILE_NAME}" 2>/dev/null | head -n 1)
-		if [ -n "${CANDIDATE}" ]; then
-			echo "${CANDIDATE}"
+		_frc_candidate=$(find "${_frc_srcdir}" -maxdepth 1 -type f -iname "${_frc_fname}" 2>/dev/null | head -n 1)
+		if [ -n "${_frc_candidate}" ]; then
+			echo "${_frc_candidate}"
 			return 0
 		fi
 	done
@@ -162,167 +162,165 @@ function findRuntimeCandidate() {
 	return 1
 }
 
-function copyOptionalFile() {
-	local FILE_NAME="$1"
+copyOptionalFile() {
+	_cof_fname="$1"
 	shift
-	local CANDIDATE
-	local DESTINATION="src/${FILE_NAME}"
+	_cof_candidate=""
+	_cof_dest="src/${_cof_fname}"
 
-	CANDIDATE=$(findRuntimeCandidate "${FILE_NAME}" "$@" || true)
-	if [ -n "${CANDIDATE}" ]; then
-		echo "Copying ${FILE_NAME} from ${CANDIDATE%/*}"
-		chmod u+w "${DESTINATION}" 2>/dev/null || true
-		cp -f "${CANDIDATE}" "${DESTINATION}"
-		chmod u+w "${DESTINATION}" 2>/dev/null || true
+	_cof_candidate=$(findRuntimeCandidate "${_cof_fname}" "$@" || true)
+	if [ -n "${_cof_candidate}" ]; then
+		echo "Copying ${_cof_fname} from ${_cof_candidate%/*}"
+		chmod u+w "${_cof_dest}" 2>/dev/null || true
+		cp -f "${_cof_candidate}" "${_cof_dest}"
+		chmod u+w "${_cof_dest}" 2>/dev/null || true
 		return 0
 	fi
 
 	return 1
 }
 
-function addRuntimeSearchDir() {
-	local DIR_PATH="$1"
-	local KNOWN_DIR
+addRuntimeSearchDir() {
+	_arsd_dir="$1"
 
-	if [ -z "${DIR_PATH}" ] || [ ! -d "${DIR_PATH}" ]; then
+	if [ -z "${_arsd_dir}" ] || [ ! -d "${_arsd_dir}" ]; then
 		return 0
 	fi
 
-	for KNOWN_DIR in "${RUNTIME_SEARCH_DIRS[@]}"; do
-		if [ "${KNOWN_DIR}" = "${DIR_PATH}" ]; then
-			return 0
-		fi
-	done
+	# deduplicate: only add if not already in RUNTIME_DIRS_FILE
+	if grep -Fx "${_arsd_dir}" "${RUNTIME_DIRS_FILE}" >/dev/null 2>&1; then
+		return 0
+	fi
 
-	RUNTIME_SEARCH_DIRS+=("${DIR_PATH}")
+	printf '%s\n' "${_arsd_dir}" >> "${RUNTIME_DIRS_FILE}"
 	return 0
 }
 
-function discoverLocalRtoolsRuntimeDirs() {
-	local GCC_PATH=""
-	local GCC_DIR=""
-	local RTOOLS_ROOT=""
-	local ENV_NAME
-	local ENV_VALUE
-	local PATH_DIR
-	local OLD_IFS
+discoverLocalRtoolsRuntimeDirs() {
+	_dlrt_gccpath=""
+	_dlrt_gccdir=""
+	_dlrt_rtroot=""
+	_dlrt_envname=""
+	_dlrt_envval=""
+	_dlrt_pathdir=""
+	_dlrt_oldifs=""
 
 	if command -v g++ >/dev/null 2>&1; then
-		GCC_PATH=$(command -v g++)
-		GCC_DIR=$(dirname "${GCC_PATH}")
-		addRuntimeSearchDir "${GCC_DIR}"
+		_dlrt_gccpath=$(command -v g++)
+		_dlrt_gccdir=$(dirname "${_dlrt_gccpath}")
+		addRuntimeSearchDir "${_dlrt_gccdir}"
 
-		case "${GCC_DIR}" in
+		case "${_dlrt_gccdir}" in
 			*/x86_64-w64-mingw32.static.posix/bin)
-				RTOOLS_ROOT="${GCC_DIR%/x86_64-w64-mingw32.static.posix/bin}"
-				addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+				_dlrt_rtroot="${_dlrt_gccdir%/x86_64-w64-mingw32.static.posix/bin}"
+				addRuntimeSearchDir "${_dlrt_rtroot}/ucrt64/bin"
 				;;
 			*/ucrt64/bin)
-				addRuntimeSearchDir "${GCC_DIR}"
+				addRuntimeSearchDir "${_dlrt_gccdir}"
 				;;
 		esac
 	fi
 
-	for ENV_NAME in RTOOLS45_HOME RTOOLS44_HOME RTOOLS43_HOME RTOOLS42_HOME; do
-		ENV_VALUE=$(printenv "${ENV_NAME}" 2>/dev/null || true)
-		addRuntimeSearchDir "${ENV_VALUE}"
-		addRuntimeSearchDir "${ENV_VALUE}/bin"
-		addRuntimeSearchDir "${ENV_VALUE}/ucrt64/bin"
-		case "${ENV_VALUE}" in
+	for _dlrt_envname in RTOOLS45_HOME RTOOLS44_HOME RTOOLS43_HOME RTOOLS42_HOME; do
+		_dlrt_envval=$(printenv "${_dlrt_envname}" 2>/dev/null || true)
+		addRuntimeSearchDir "${_dlrt_envval}"
+		addRuntimeSearchDir "${_dlrt_envval}/bin"
+		addRuntimeSearchDir "${_dlrt_envval}/ucrt64/bin"
+		case "${_dlrt_envval}" in
 			*/ucrt64)
-				addRuntimeSearchDir "${ENV_VALUE}/bin"
+				addRuntimeSearchDir "${_dlrt_envval}/bin"
 				;;
 		esac
 	done
 
-	for RTOOLS_ROOT in /c/rtools45 /c/rtools44 /c/rtools43 /c/rtools42; do
-		addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+	for _dlrt_rtroot in /c/rtools45 /c/rtools44 /c/rtools43 /c/rtools42; do
+		addRuntimeSearchDir "${_dlrt_rtroot}/ucrt64/bin"
 	done
 
-	OLD_IFS="${IFS}"
+	_dlrt_oldifs="${IFS}"
 	IFS=':'
-	for PATH_DIR in ${PATH}; do
-		case "${PATH_DIR}" in
+	for _dlrt_pathdir in ${PATH}; do
+		case "${_dlrt_pathdir}" in
 			*rtools*/ucrt64/bin)
-				addRuntimeSearchDir "${PATH_DIR}"
+				addRuntimeSearchDir "${_dlrt_pathdir}"
 				;;
 			*rtools*/x86_64-w64-mingw32.static.posix/bin)
-				RTOOLS_ROOT="${PATH_DIR%/x86_64-w64-mingw32.static.posix/bin}"
-				addRuntimeSearchDir "${RTOOLS_ROOT}/ucrt64/bin"
+				_dlrt_rtroot="${_dlrt_pathdir%/x86_64-w64-mingw32.static.posix/bin}"
+				addRuntimeSearchDir "${_dlrt_rtroot}/ucrt64/bin"
 				;;
 		esac
 	done
-	IFS="${OLD_IFS}"
+	IFS="${_dlrt_oldifs}"
 }
 
-function discoverWindowsSystemRuntimeDirs() {
-	local SYSTEM_ROOT
-	local SYSTEM_DIR
+discoverWindowsSystemRuntimeDirs() {
+	_dwsr_sysroot=""
+	_dwsr_sysdir=""
 
-	SYSTEM_ROOT=$(printenv SystemRoot 2>/dev/null || printenv SYSTEMROOT 2>/dev/null || true)
-	if [ -n "${SYSTEM_ROOT}" ]; then
-		SYSTEM_DIR="${SYSTEM_ROOT}/System32"
+	_dwsr_sysroot=$(printenv SystemRoot 2>/dev/null || printenv SYSTEMROOT 2>/dev/null || true)
+	if [ -n "${_dwsr_sysroot}" ]; then
+		_dwsr_sysdir="${_dwsr_sysroot}/System32"
 		if command -v cygpath >/dev/null 2>&1; then
-			addRuntimeSearchDir "$(cygpath -u "${SYSTEM_DIR}")"
+			addRuntimeSearchDir "$(cygpath -u "${_dwsr_sysdir}")"
 		fi
-		addRuntimeSearchDir "${SYSTEM_DIR}"
+		addRuntimeSearchDir "${_dwsr_sysdir}"
 	fi
 
 	addRuntimeSearchDir "/c/Windows/System32"
 }
 
-function addQtRuntimeDirFromCMakeCache() {
-	local CACHE_PATH="$1"
-	local PREFIX_PATH=""
-	local QT_CORE_DIR=""
+addQtRuntimeDirFromCMakeCache() {
+	_aqrd_cache="$1"
+	_aqrd_prefix=""
+	_aqrd_qtcore=""
 
-	if [ ! -f "${CACHE_PATH}" ]; then
+	if [ ! -f "${_aqrd_cache}" ]; then
 		return 0
 	fi
 
-	PREFIX_PATH=$(grep -E '^CMAKE_PREFIX_PATH:PATH=' "${CACHE_PATH}" | sed -E 's/^[^=]+=//' | head -n 1)
-	addRuntimeSearchDir "${PREFIX_PATH}/bin"
+	_aqrd_prefix=$(grep -E '^CMAKE_PREFIX_PATH:PATH=' "${_aqrd_cache}" | sed 's/^[^=][^=]*=//' | head -n 1)
+	addRuntimeSearchDir "${_aqrd_prefix}/bin"
 
-	QT_CORE_DIR=$(grep -E '^Qt6Core_DIR:PATH=' "${CACHE_PATH}" | sed -E 's/^[^=]+=//' | head -n 1)
-	case "${QT_CORE_DIR}" in
+	_aqrd_qtcore=$(grep -E '^Qt6Core_DIR:PATH=' "${_aqrd_cache}" | sed 's/^[^=][^=]*=//' | head -n 1)
+	case "${_aqrd_qtcore}" in
 		*/lib/cmake/Qt6Core)
-			addRuntimeSearchDir "${QT_CORE_DIR%/lib/cmake/Qt6Core}/bin"
+			addRuntimeSearchDir "${_aqrd_qtcore%/lib/cmake/Qt6Core}/bin"
 			;;
 	esac
 }
 
-function discoverLocalQtRuntimeDirs() {
-	local PATH_DIR
-	local QT_DIR
-	local OLD_IFS
+discoverLocalQtRuntimeDirs() {
+	_dlqd_pathdir=""
+	_dlqd_qtdir=""
+	_dlqd_oldifs=""
 
 	addRuntimeSearchDir "${JASPSYNTAX_QT_DIR}"
 	addRuntimeSearchDir "${JASPSYNTAX_QT_DIR}/bin"
 	addQtRuntimeDirFromCMakeCache "${JASP_BUILD_DIR}/CMakeCache.txt"
 
-	for QT_DIR in /c/Qt/*/msvc*/bin /c/Qt/*/mingw*/bin /c/Qt/*/*/bin; do
-		addRuntimeSearchDir "${QT_DIR}"
+	for _dlqd_qtdir in /c/Qt/*/msvc*/bin /c/Qt/*/mingw*/bin /c/Qt/*/*/bin; do
+		addRuntimeSearchDir "${_dlqd_qtdir}"
 	done
 
-	OLD_IFS="${IFS}"
+	_dlqd_oldifs="${IFS}"
 	IFS=':'
-	for PATH_DIR in ${PATH}; do
-		case "${PATH_DIR}" in
+	for _dlqd_pathdir in ${PATH}; do
+		case "${_dlqd_pathdir}" in
 			*Qt*/bin)
-				addRuntimeSearchDir "${PATH_DIR}"
+				addRuntimeSearchDir "${_dlqd_pathdir}"
 				;;
 		esac
 	done
-	IFS="${OLD_IFS}"
+	IFS="${_dlqd_oldifs}"
 }
 
-function dllNameLower() {
+dllNameLower() {
 	echo "$1" | tr '[:upper:]' '[:lower:]'
 }
 
-function findObjdumpTool() {
-	local SEARCH_DIR
-	local CANDIDATE
+findObjdumpTool() {
+	_fot_dir=""
+	_fot_candidate=""
 
 	if [ -n "${OBJDUMP_TOOL}" ] && [ -x "${OBJDUMP_TOOL}" ]; then
 		echo "${OBJDUMP_TOOL}"
@@ -335,37 +333,37 @@ function findObjdumpTool() {
 		return 0
 	fi
 
-	for SEARCH_DIR in "${RUNTIME_SEARCH_DIRS[@]}"; do
-		if [ -z "${SEARCH_DIR}" ] || [ ! -d "${SEARCH_DIR}" ]; then
+	while IFS= read -r _fot_dir; do
+		if [ -z "${_fot_dir}" ] || [ ! -d "${_fot_dir}" ]; then
 			continue
 		fi
 
-		for CANDIDATE in "${SEARCH_DIR}/objdump.exe" "${SEARCH_DIR}/objdump"; do
-			if [ -x "${CANDIDATE}" ]; then
-				OBJDUMP_TOOL="${CANDIDATE}"
+		for _fot_candidate in "${_fot_dir}/objdump.exe" "${_fot_dir}/objdump"; do
+			if [ -x "${_fot_candidate}" ]; then
+				OBJDUMP_TOOL="${_fot_candidate}"
 				echo "${OBJDUMP_TOOL}"
 				return 0
 			fi
 		done
-	done
+	done < "${RUNTIME_DIRS_FILE}"
 
 	return 1
 }
 
-function importedDllsForFile() {
-	local BINARY_PATH="$1"
-	local OBJDUMP_PATH
+importedDllsForFile() {
+	_idf_bin="$1"
+	_idf_objdump=""
 
-	OBJDUMP_PATH=$(findObjdumpTool || true)
-	if [ -z "${OBJDUMP_PATH}" ]; then
+	_idf_objdump=$(findObjdumpTool || true)
+	if [ -z "${_idf_objdump}" ]; then
 		return 1
 	fi
 
-	"${OBJDUMP_PATH}" -p "${BINARY_PATH}" 2>/dev/null |
-		sed -n -E 's/^[[:space:]]*DLL Name:[[:space:]]*//p'
+	"${_idf_objdump}" -p "${_idf_bin}" 2>/dev/null |
+		sed -n 's/^[[:space:]]*DLL Name:[[:space:]]*//p'
 }
 
-function syntaxInterfaceImportedDlls() {
+syntaxInterfaceImportedDlls() {
 	if importedDllsForFile "${SYNTAXINTERFACE_BINARY_PATH}"; then
 		return 0
 	fi
@@ -378,11 +376,11 @@ function syntaxInterfaceImportedDlls() {
 	fi
 }
 
-function isPlatformRuntimeDll() {
-	local DLL_LOWER
-	DLL_LOWER=$(dllNameLower "$1")
+isPlatformRuntimeDll() {
+	_iprd_lower=""
+	_iprd_lower=$(dllNameLower "$1")
 
-	case "${DLL_LOWER}" in
+	case "${_iprd_lower}" in
 		api-ms-*.dll|ext-ms-*.dll|advapi32.dll|authz.dll|bcrypt.dll|cfgmgr32.dll|clbcatq.dll|combase.dll|comctl32.dll|comdlg32.dll|coremessaging.dll|coreuicomponents.dll|crypt32.dll|cryptbase.dll|cryptsp.dll|d3d*.dll|dcomp.dll|dnsapi.dll|dwmapi.dll|dwrite.dll|dxgi.dll|gdi32.dll|gdi32full.dll|glu32.dll|icu*.dll|imm32.dll|iphlpapi.dll|kernel32.dll|kernelbase.dll|mpr.dll|msasn1.dll|msvcp140*.dll|msvcp_win.dll|msvcrt.dll|ncrypt.dll|ncryptsslp.dll|normaliz.dll|ntasn1.dll|ntdll.dll|ole32.dll|oleacc.dll|oleaut32.dll|opengl32.dll|powrprof.dll|profapi.dll|propsys.dll|psapi.dll|rpcrt4.dll|secur32.dll|setupapi.dll|shell32.dll|shlwapi.dll|sspicli.dll|textinputframework.dll|uiautomationcore.dll|user32.dll|userenv.dll|usp10.dll|ucrtbase.dll|uxtheme.dll|vcruntime140*.dll|version.dll|win32u.dll|windows.storage.dll|winhttp.dll|wininet.dll|winmm.dll|wldp.dll|ws2_32.dll|wtsapi32.dll|xmllite.dll|r.dll|rgraphapp.dll|rblas.dll|rlapack.dll)
 			return 0
 			;;
@@ -391,128 +389,132 @@ function isPlatformRuntimeDll() {
 	return 1
 }
 
-function wasRuntimeBinaryProcessed() {
-	local BINARY_PATH="$1"
-	local PROCESSED
-
-	for PROCESSED in "${PROCESSED_RUNTIME_BINARIES[@]}"; do
-		if [ "${PROCESSED}" = "${BINARY_PATH}" ]; then
-			return 0
-		fi
-	done
-
-	return 1
+wasRuntimeBinaryProcessed() {
+	grep -Fx "$1" "${PROCESSED_FILE}" >/dev/null 2>&1
 }
 
-function markRuntimeBinaryProcessed() {
-	PROCESSED_RUNTIME_BINARIES+=("$1")
+markRuntimeBinaryProcessed() {
+	printf '%s\n' "$1" >> "${PROCESSED_FILE}"
 }
 
-function addMissingTransitiveRuntimeDll() {
-	local DLL_NAME="$1"
-	local IMPORTER="$2"
-	local ENTRY="${DLL_NAME} imported by ${IMPORTER}"
-	local KNOWN_ENTRY
+addMissingTransitiveRuntimeDll() {
+	_amtd_dll="$1"
+	_amtd_importer="$2"
+	_amtd_entry="${_amtd_dll} imported by ${_amtd_importer}"
 
-	for KNOWN_ENTRY in "${MISSING_TRANSITIVE_RUNTIME_DLLS[@]}"; do
-		if [ "${KNOWN_ENTRY}" = "${ENTRY}" ]; then
-			return 0
-		fi
-	done
+	# deduplicate
+	if grep -Fx "${_amtd_entry}" "${MISSING_DLLS_FILE}" >/dev/null 2>&1; then
+		return 0
+	fi
 
-	MISSING_TRANSITIVE_RUNTIME_DLLS+=("${ENTRY}")
+	printf '%s\n' "${_amtd_entry}" >> "${MISSING_DLLS_FILE}"
 }
 
-function collectBundledRuntimeBinaries() {
-	local CANDIDATE
+collectBundledRuntimeBinaries() {
+	_cbrb_candidate=""
 
-	for CANDIDATE in src/*.dll src/platforms/*.dll; do
-		if [ -f "${CANDIDATE}" ]; then
-			echo "${CANDIDATE}"
+	for _cbrb_candidate in src/*.dll src/platforms/*.dll; do
+		if [ -f "${_cbrb_candidate}" ]; then
+			echo "${_cbrb_candidate}"
 		fi
 	done
 }
 
-function bundleTransitiveRuntimeDlls() {
-	local QUEUE=()
-	local INDEX=0
-	local BINARY_PATH
-	local IMPORTED_DLL
-	local CANDIDATE
-	local ENTRY
-	local SEARCH_DIR
-	local OBJDUMP_PATH
+bundleTransitiveRuntimeDlls() {
+	_btd_queue="/tmp/jaspsyntax-queue.$$"
+	_btd_index=0
+	_btd_bin=""
+	_btd_dll=""
+	_btd_candidate=""
+	_btd_entry=""
+	_btd_dir=""
+	_btd_objdump=""
+	_btd_tmp="/tmp/jaspsyntax-imports.$$"
+	_btd_missing_count=0
 
-	OBJDUMP_PATH=$(findObjdumpTool || true)
-	if [ -z "${OBJDUMP_PATH}" ]; then
+	: > "${_btd_queue}"
+
+	_btd_objdump=$(findObjdumpTool || true)
+	if [ -z "${_btd_objdump}" ]; then
 		printf "Warning: objdump is not available; jaspSyntax cannot inspect transitive Windows DLL dependencies automatically.\n\
 If package loading later fails with a DLL load error, reinstall with JASPSYNTAX_RUNTIME_DIR pointing to Rtools/ucrt64/bin and, for dynamic Qt builds, JASPSYNTAX_QT_DIR pointing to the Qt bin directory.\n"
 		return 0
 	fi
 
-	for BINARY_PATH in "$@"; do
-		if [ -f "${BINARY_PATH}" ]; then
-			QUEUE+=("${BINARY_PATH}")
+	for _btd_bin in "$@"; do
+		if [ -f "${_btd_bin}" ]; then
+			printf '%s\n' "${_btd_bin}" >> "${_btd_queue}"
 		fi
 	done
 
-	while [ "${INDEX}" -lt "${#QUEUE[@]}" ]; do
-		BINARY_PATH="${QUEUE[$INDEX]}"
-		INDEX=$((INDEX + 1))
+	while true; do
+		_btd_index=$((_btd_index + 1))
+		_btd_bin=$(sed -n "${_btd_index}p" "${_btd_queue}" 2>/dev/null)
+		[ -z "${_btd_bin}" ] && break
 
-		if wasRuntimeBinaryProcessed "${BINARY_PATH}"; then
+		if wasRuntimeBinaryProcessed "${_btd_bin}"; then
 			continue
 		fi
-		markRuntimeBinaryProcessed "${BINARY_PATH}"
+		markRuntimeBinaryProcessed "${_btd_bin}"
 
-		while IFS= read -r IMPORTED_DLL; do
-			if [ -z "${IMPORTED_DLL}" ] || isPlatformRuntimeDll "${IMPORTED_DLL}"; then
+		importedDllsForFile "${_btd_bin}" | sort -u > "${_btd_tmp}"
+		while IFS= read -r _btd_dll; do
+			if [ -z "${_btd_dll}" ] || isPlatformRuntimeDll "${_btd_dll}"; then
 				continue
 			fi
 
-			CANDIDATE=""
-			if copyOptionalFile "${IMPORTED_DLL}" "${RUNTIME_SEARCH_DIRS[@]}"; then
-				CANDIDATE="src/${IMPORTED_DLL}"
-			elif [ -f "src/${IMPORTED_DLL}" ]; then
-				CANDIDATE="src/${IMPORTED_DLL}"
-			elif [ -f "src/platforms/${IMPORTED_DLL}" ]; then
-				CANDIDATE="src/platforms/${IMPORTED_DLL}"
+			_btd_candidate=""
+			# collect runtime dirs from file, pass as args to copyOptionalFile
+			set --
+			while IFS= read -r _btd_dir; do
+				[ -n "${_btd_dir}" ] && set -- "$@" "${_btd_dir}"
+			done < "${RUNTIME_DIRS_FILE}"
+			if copyOptionalFile "${_btd_dll}" "$@"; then
+				_btd_candidate="src/${_btd_dll}"
+			elif [ -f "src/${_btd_dll}" ]; then
+				_btd_candidate="src/${_btd_dll}"
+			elif [ -f "src/platforms/${_btd_dll}" ]; then
+				_btd_candidate="src/platforms/${_btd_dll}"
 			else
-				addMissingTransitiveRuntimeDll "${IMPORTED_DLL}" "${BINARY_PATH}"
+				addMissingTransitiveRuntimeDll "${_btd_dll}" "${_btd_bin}"
 				continue
 			fi
 
-			QUEUE+=("${CANDIDATE}")
-		done < <(importedDllsForFile "${BINARY_PATH}" | sort -u)
+			printf '%s\n' "${_btd_candidate}" >> "${_btd_queue}"
+		done < "${_btd_tmp}"
+		rm -f "${_btd_tmp}"
 	done
 
-	if [ "${#MISSING_TRANSITIVE_RUNTIME_DLLS[@]}" -gt 0 ]; then
+	rm -f "${_btd_queue}" "${_btd_tmp}"
+
+	_btd_missing_count=$(wc -l < "${MISSING_DLLS_FILE}" 2>/dev/null | tr -d '[:space:]')
+	if [ -n "${_btd_missing_count}" ] && [ "${_btd_missing_count}" -gt 0 ]; then
 		printf "Installing jaspSyntax failed because transitive Windows runtime DLL dependencies could not be bundled automatically.\n\
 Set JASPSYNTAX_RUNTIME_DIR to the Rtools/ucrt64/bin directory and, for dynamic Qt builds, set JASPSYNTAX_QT_DIR to the Qt bin directory. If you are using a local Desktop build, prefer JASPSYNTAX_LIB_DIR or JASP_BUILD_DIR from the same build tree.\n"
 		echo "Missing DLL dependencies:"
-		for ENTRY in "${MISSING_TRANSITIVE_RUNTIME_DLLS[@]}"; do
-			echo "  ${ENTRY}"
-		done
+		while IFS= read -r _btd_entry; do
+			echo "  ${_btd_entry}"
+		done < "${MISSING_DLLS_FILE}"
 		echo "Searched runtime directories:"
-		for SEARCH_DIR in "${RUNTIME_SEARCH_DIRS[@]}"; do
-			if [ -n "${SEARCH_DIR}" ]; then
-				echo "  ${SEARCH_DIR}"
+		while IFS= read -r _btd_dir; do
+			if [ -n "${_btd_dir}" ]; then
+				echo "  ${_btd_dir}"
 			fi
-		done
+		done < "${RUNTIME_DIRS_FILE}"
 		exit 1
 	fi
 }
 
-function requireRuntimeFile() {
-	local FILE_NAME="$1"
+requireRuntimeFile() {
+	_rrf_fname="$1"
 	shift
-	local SEARCH_DIR
+	_rrf_dir=""
 
-	if [ -f "src/${FILE_NAME}" ]; then
+	if [ -f "src/${_rrf_fname}" ]; then
 		return 0
 	fi
 
-	if copyOptionalFile "${FILE_NAME}" "$@"; then
+	if copyOptionalFile "${_rrf_fname}" "$@"; then
 		return 0
 	fi
 
@@ -520,13 +522,13 @@ function requireRuntimeFile() {
 The selected SyntaxInterface binary requires matching runtime DLLs. For Rtools \
 DLLs set JASPSYNTAX_RUNTIME_DIR; for dynamic Qt builds set JASPSYNTAX_QT_DIR, \
 for example:\n\
-options(configure.vars = c(jaspSyntax = \"JASPSYNTAX_RUNTIME_DIR='<path-to-rtools>/ucrt64/bin' JASPSYNTAX_QT_DIR='<path-to-qt>/bin'\"))\n" "${FILE_NAME}"
+options(configure.vars = c(jaspSyntax = \"JASPSYNTAX_RUNTIME_DIR='<path-to-rtools>/ucrt64/bin' JASPSYNTAX_QT_DIR='<path-to-qt>/bin'\"))\n" "${_rrf_fname}"
 
 	if [ "$#" -gt 0 ]; then
 		echo "Searched runtime directories:"
-		for SEARCH_DIR in "$@"; do
-			if [ -n "${SEARCH_DIR}" ]; then
-				echo "  ${SEARCH_DIR}"
+		for _rrf_dir in "$@"; do
+			if [ -n "${_rrf_dir}" ]; then
+				echo "  ${_rrf_dir}"
 			fi
 		done
 	fi
@@ -534,51 +536,51 @@ options(configure.vars = c(jaspSyntax = \"JASPSYNTAX_RUNTIME_DIR='<path-to-rtool
 	exit 1
 }
 
-function findQtPlatformPlugin() {
-	local PLUGIN_NAME="$1"
-	local SEARCH_DIR
-	local CANDIDATE
+findQtPlatformPlugin() {
+	_fqpp_name="$1"
+	_fqpp_dir=""
+	_fqpp_candidate=""
 
-	for SEARCH_DIR in "${RUNTIME_SEARCH_DIRS[@]}"; do
-		if [ -z "${SEARCH_DIR}" ]; then
+	while IFS= read -r _fqpp_dir; do
+		if [ -z "${_fqpp_dir}" ]; then
 			continue
 		fi
 
-		CANDIDATE="${SEARCH_DIR}/../plugins/platforms/${PLUGIN_NAME}"
-		if [ -f "${CANDIDATE}" ]; then
-			echo "${CANDIDATE}"
+		_fqpp_candidate="${_fqpp_dir}/../plugins/platforms/${_fqpp_name}"
+		if [ -f "${_fqpp_candidate}" ]; then
+			echo "${_fqpp_candidate}"
 			return 0
 		fi
 
-		CANDIDATE="${SEARCH_DIR}/plugins/platforms/${PLUGIN_NAME}"
-		if [ -f "${CANDIDATE}" ]; then
-			echo "${CANDIDATE}"
+		_fqpp_candidate="${_fqpp_dir}/plugins/platforms/${_fqpp_name}"
+		if [ -f "${_fqpp_candidate}" ]; then
+			echo "${_fqpp_candidate}"
 			return 0
 		fi
-	done
+	done < "${RUNTIME_DIRS_FILE}"
 
 	return 1
 }
 
-function requireQtPlatformPlugin() {
-	local PLUGIN_NAME="$1"
-	local PLUGIN_PATH
+requireQtPlatformPlugin() {
+	_rqpp_name="$1"
+	_rqpp_path=""
 
 	mkdir -p "src/platforms"
-	if [ -f "src/platforms/${PLUGIN_NAME}" ]; then
+	if [ -f "src/platforms/${_rqpp_name}" ]; then
 		return 0
 	fi
 
-	PLUGIN_PATH=$(findQtPlatformPlugin "${PLUGIN_NAME}" || true)
-	if [ -n "${PLUGIN_PATH}" ]; then
-		echo "Copying Qt platform plugin ${PLUGIN_NAME} from ${PLUGIN_PATH%/*}"
-		cp "${PLUGIN_PATH}" "src/platforms/${PLUGIN_NAME}"
+	_rqpp_path=$(findQtPlatformPlugin "${_rqpp_name}" || true)
+	if [ -n "${_rqpp_path}" ]; then
+		echo "Copying Qt platform plugin ${_rqpp_name} from ${_rqpp_path%/*}"
+		cp "${_rqpp_path}" "src/platforms/${_rqpp_name}"
 		return 0
 	fi
 
 	printf "Installing jaspSyntax failed because the Qt platform plugin %s could not be located.\n\
 For dynamic Qt builds set JASPSYNTAX_QT_DIR to the Qt bin directory or its parent, for example:\n\
-options(configure.vars = c(jaspSyntax = \"JASPSYNTAX_QT_DIR='<path-to-qt>/bin'\"))\n" "${PLUGIN_NAME}"
+options(configure.vars = c(jaspSyntax = \"JASPSYNTAX_QT_DIR='<path-to-qt>/bin'\"))\n" "${_rqpp_name}"
 
 	exit 1
 }
@@ -604,30 +606,33 @@ if [ -z "${JASP_SOURCE_DIR}" ] && [ -n "${JASP_BUILD_DIR}" ]; then
 	fi
 fi
 
-RUNTIME_SEARCH_DIRS=()
-PROCESSED_RUNTIME_BINARIES=()
-MISSING_TRANSITIVE_RUNTIME_DLLS=()
+RUNTIME_DIRS_FILE="/tmp/jaspsyntax-rtdirs.$$"
+PROCESSED_FILE="/tmp/jaspsyntax-processed.$$"
+MISSING_DLLS_FILE="/tmp/jaspsyntax-missingdlls.$$"
+: > "${RUNTIME_DIRS_FILE}"
+: > "${PROCESSED_FILE}"
+: > "${MISSING_DLLS_FILE}"
 OBJDUMP_TOOL=""
 SYNTAXINTERFACE_HEADER_PATH="src/syntaxbridge_interface.h"
 SYNTAXINTERFACE_HEADER_ORIGIN=""
 SYNTAXINTERFACE_BINARY_PATH="src/SyntaxInterface.dll"
 SYNTAXINTERFACE_BINARY_ORIGIN=""
 
-function fileSha256() {
-	local FILE_PATH="$1"
+fileSha256() {
+	_fs_path="$1"
 
-	if [ ! -f "${FILE_PATH}" ]; then
+	if [ ! -f "${_fs_path}" ]; then
 		echo "unavailable"
 	elif command -v sha256sum >/dev/null 2>&1; then
-		sha256sum "${FILE_PATH}" | awk '{print $1}'
+		sha256sum "${_fs_path}" | awk '{print $1}'
 	elif command -v shasum >/dev/null 2>&1; then
-		shasum -a 256 "${FILE_PATH}" | awk '{print $1}'
+		shasum -a 256 "${_fs_path}" | awk '{print $1}'
 	else
 		echo "unavailable"
 	fi
 }
 
-function writeSyntaxInterfaceProvenance() {
+writeSyntaxInterfaceProvenance() {
 	if [ -z "${SYNTAXINTERFACE_HEADER_ORIGIN}" ]; then
 		SYNTAXINTERFACE_HEADER_ORIGIN="local:${SYNTAXINTERFACE_HEADER_PATH}"
 	fi
@@ -666,7 +671,7 @@ EOF
 
 JSON_FILES="allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h"
 
-if [[ "${JASP_SOURCE_DIR}" ]]; then
+if [ -n "${JASP_SOURCE_DIR}" ]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
 	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\" -I\"${JASP_SOURCE_DIR}/Common\""
 	mkdir -p 'src/json'
@@ -694,11 +699,11 @@ fi
 SYNTAXINTERFACE_DLL="SyntaxInterface.dll"
 SYNTAXINTERFACE_ASSET="SyntaxInterface-windows-x86_64.dll"
 
-if [[ "${JASPSYNTAX_LIB_DIR}" ]]; then
+if [ -n "${JASPSYNTAX_LIB_DIR}" ]; then
 	echo "Using JASPSYNTAX_LIB_DIR: ${JASPSYNTAX_LIB_DIR}"
 	SYNTAXINTERFACE_BINARY_ORIGIN="${JASPSYNTAX_LIB_DIR}/${SYNTAXINTERFACE_DLL}"
 	cp "${SYNTAXINTERFACE_BINARY_ORIGIN}" "src/${SYNTAXINTERFACE_DLL}"
-elif [[ "${JASP_BUILD_DIR}" ]]; then
+elif [ -n "${JASP_BUILD_DIR}" ]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 	for CANDIDATE in \
 		"${JASP_BUILD_DIR}/${SYNTAXINTERFACE_DLL}" \
@@ -734,9 +739,9 @@ fi
 RINTERFACE_DLL="libR-InterfaceNoRInside.dll"
 RINTERFACE_ASSET="libR-InterfaceNoRInside-windows-x86_64.dll"
 
-if [[ "${JASPSYNTAX_LIB_DIR}" ]] && [ -f "${JASPSYNTAX_LIB_DIR}/${RINTERFACE_DLL}" ]; then
+if [ -n "${JASPSYNTAX_LIB_DIR}" ] && [ -f "${JASPSYNTAX_LIB_DIR}/${RINTERFACE_DLL}" ]; then
 	cp "${JASPSYNTAX_LIB_DIR}/${RINTERFACE_DLL}" src/
-elif [[ "${JASP_BUILD_DIR}" ]]; then
+elif [ -n "${JASP_BUILD_DIR}" ]; then
 	RINTERFACE_ORIGIN=""
 	for CANDIDATE in \
 		"${JASP_BUILD_DIR}/R-Interface/${RINTERFACE_DLL}" \
@@ -776,20 +781,30 @@ discoverLocalRtoolsRuntimeDirs
 discoverWindowsSystemRuntimeDirs
 
 for RUNTIME_DLL in ${RUNTIME_DLLS}; do
-	requireRuntimeFile "${RUNTIME_DLL}" "${RUNTIME_SEARCH_DIRS[@]}"
+	# Collect runtime dirs as positional arguments
+	set --
+	while IFS= read -r _rrf_d; do
+		[ -n "${_rrf_d}" ] && set -- "$@" "${_rrf_d}"
+	done < "${RUNTIME_DIRS_FILE}"
+	requireRuntimeFile "${RUNTIME_DLL}" "$@"
 done
 
 discoverLocalQtRuntimeDirs
 QT_RUNTIME_DLLS=$(syntaxInterfaceImportedDlls | grep -E '^Qt6.*\.dll$' | sort -u || true)
 for QT_RUNTIME_DLL in ${QT_RUNTIME_DLLS}; do
-	requireRuntimeFile "${QT_RUNTIME_DLL}" "${RUNTIME_SEARCH_DIRS[@]}"
+	# Collect runtime dirs as positional arguments
+	set --
+	while IFS= read -r _rrf_d; do
+		[ -n "${_rrf_d}" ] && set -- "$@" "${_rrf_d}"
+	done < "${RUNTIME_DIRS_FILE}"
+	requireRuntimeFile "${QT_RUNTIME_DLL}" "$@"
 done
 if [ -n "${QT_RUNTIME_DLLS}" ]; then
 	requireQtPlatformPlugin "qminimal.dll"
 fi
 
 bundleTransitiveRuntimeDlls $(collectBundledRuntimeBinaries)
-if compgen -G "src/Qt6*.dll" >/dev/null; then
+if ls src/Qt6*.dll >/dev/null 2>&1; then
 	requireQtPlatformPlugin "qminimal.dll"
 	bundleTransitiveRuntimeDlls $(collectBundledRuntimeBinaries)
 fi

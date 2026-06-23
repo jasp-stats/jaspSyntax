@@ -11,7 +11,7 @@ License: GPL-3 + file LICENSE
 Encoding: UTF-8
 URL: https://github.com/jasp-stats/jaspSyntax
 BugReports: https://github.com/jasp-stats/jaspSyntax/issues
-SystemRequirements: libcurl or wget (for downloading the SyntaxInterface library during installation), libglvnd
+SystemRequirements: libcurl or wget (for downloading the SyntaxInterface library during installation), OpenGL (libglvnd; provides libOpenGL.so.0)
 Imports:
     callr,
     jsonlite,

@@ -1,10 +1,12 @@
 on:
   push:
     paths: ['**.R', '**.svg', '**.Rd', 'DESCRIPTION', 'NAMESPACE', '.github/workflows/rcmdcheck.yml']
+    branches:
+      - master
   pull_request:
     paths: ['**.R', '**.svg', '**.Rd', 'DESCRIPTION', 'NAMESPACE', '.github/workflows/rcmdcheck.yml']
-
-name: R-CMD-check
+    branches:
+      - master
 
 permissions:
   contents: read
