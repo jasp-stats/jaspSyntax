@@ -13,3 +13,6 @@
 ^src/SyntaxInterface\.provenance$
 ^src/syntaxbridge_interface\.h$
 ^src/json$
+^tests/figs/\.gitkeep$
+^tests/testthat/\.gitkeep$
+^tests/testthat/fixtures/minimalModule/inst/icons/\.gitkeep$

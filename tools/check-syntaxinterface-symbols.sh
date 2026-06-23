@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-set -euo pipefail
+set -eu
 
 HEADER_PATH="${1:-}"
 BINARY_PATH="${2:-}"
@@ -9,11 +9,11 @@ SOURCE_PATH="${3:-src/syntaxfunctions.cpp}"
 HEADER_ORIGIN="${SYNTAXINTERFACE_HEADER_ORIGIN:-}"
 BINARY_ORIGIN="${SYNTAXINTERFACE_BINARY_ORIGIN:-}"
 
-function usage() {
+usage() {
 	echo "Usage: $0 <syntaxbridge_interface.h> <SyntaxInterface binary> [syntaxfunctions.cpp]" >&2
 }
 
-function print_path_context() {
+print_path_context() {
 	echo "  Header path: ${HEADER_PATH}" >&2
 	if [ -n "${HEADER_ORIGIN}" ] && [ "${HEADER_ORIGIN}" != "${HEADER_PATH}" ]; then
 		echo "  Header source: ${HEADER_ORIGIN}" >&2
@@ -25,49 +25,49 @@ function print_path_context() {
 	echo "  Native source: ${SOURCE_PATH}" >&2
 }
 
-function print_missing_symbols() {
-	local FILE_PATH="$1"
-	local SYMBOL
+print_missing_symbols() {
+	_pms_path="$1"
+	_pms_sym=""
 
-	while IFS= read -r SYMBOL; do
-		[ -n "${SYMBOL}" ] && echo "    ${SYMBOL}" >&2
-	done < "${FILE_PATH}"
+	while IFS= read -r _pms_sym; do
+		[ -n "${_pms_sym}" ] && echo "    ${_pms_sym}" >&2
+	done < "${_pms_path}"
 }
 
-function fail_with_missing_symbols() {
-	local TITLE="$1"
-	local DETAILS="$2"
-	local MISSING_FILE="$3"
+fail_with_missing_symbols() {
+	_fwms_title="$1"
+	_fwms_details="$2"
+	_fwms_missing="$3"
 
 	echo "" >&2
-	echo "ERROR: ${TITLE}" >&2
+	echo "ERROR: ${_fwms_title}" >&2
 	print_path_context
 	echo "  Missing symbols:" >&2
-	print_missing_symbols "${MISSING_FILE}"
+	print_missing_symbols "${_fwms_missing}"
 	echo "" >&2
-	echo "${DETAILS}" >&2
+	echo "${_fwms_details}" >&2
 	exit 1
 }
 
-function find_export_tool() {
-	local CANDIDATE
+find_export_tool() {
+	_fet_candidate=""
 
-	for CANDIDATE in dumpbin llvm-objdump objdump x86_64-w64-mingw32-objdump nm x86_64-w64-mingw32-nm; do
-		if command -v "${CANDIDATE}" >/dev/null 2>&1; then
-			command -v "${CANDIDATE}"
+	for _fet_candidate in dumpbin llvm-objdump objdump x86_64-w64-mingw32-objdump nm x86_64-w64-mingw32-nm; do
+		if command -v "${_fet_candidate}" >/dev/null 2>&1; then
+			command -v "${_fet_candidate}"
 			return 0
 		fi
 	done
 
-	for CANDIDATE in \
+	for _fet_candidate in \
 		/c/rtools46/ucrt64/bin/objdump \
 		/c/rtools45/ucrt64/bin/objdump \
 		/c/rtools44/ucrt64/bin/objdump \
 		/c/rtools43/ucrt64/bin/objdump \
 		/c/rtools42/ucrt64/bin/objdump
 	do
-		if [ -x "${CANDIDATE}" ]; then
-			echo "${CANDIDATE}"
+		if [ -x "${_fet_candidate}" ]; then
+			echo "${_fet_candidate}"
 			return 0
 		fi
 	done
@@ -75,36 +75,36 @@ function find_export_tool() {
 	return 1
 }
 
-function write_exports() {
-	local TOOL_PATH="$1"
-	local DLL_PATH="$2"
-	local OUTPUT_PATH="$3"
-	local TOOL_NAME
+write_exports() {
+	_we_tool="$1"
+	_we_dll="$2"
+	_we_output="$3"
+	_we_toolname=""
 
-	TOOL_NAME="$(basename "${TOOL_PATH}")"
+	_we_toolname="$(basename "${_we_tool}")"
 
-	case "${TOOL_NAME}" in
+	case "${_we_toolname}" in
 		dumpbin*)
-			"${TOOL_PATH}" /exports "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1
+			"${_we_tool}" /exports "${_we_dll}" > "${_we_output}" 2>&1
 			;;
 		*objdump*)
-			case "${DLL_PATH}" in
+			case "${_we_dll}" in
 				*.dll|*.DLL)
-					"${TOOL_PATH}" -p "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1
+					"${_we_tool}" -p "${_we_dll}" > "${_we_output}" 2>&1
 					;;
 				*.dylib)
 					# macOS's objdump exits 0 for -T on Mach-O but emits only a
 					# warning with no symbol data. Use nm -g instead.
-					nm -g "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1
+					nm -g "${_we_dll}" > "${_we_output}" 2>&1
 					;;
 				*)
-					"${TOOL_PATH}" -T "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1 ||
-						"${TOOL_PATH}" -t "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1
+					"${_we_tool}" -T "${_we_dll}" > "${_we_output}" 2>&1 ||
+						"${_we_tool}" -t "${_we_dll}" > "${_we_output}" 2>&1
 					;;
 			esac
 			;;
 		*nm*)
-			"${TOOL_PATH}" -g "${DLL_PATH}" > "${OUTPUT_PATH}" 2>&1
+			"${_we_tool}" -g "${_we_dll}" > "${_we_output}" 2>&1
 			;;
 		*)
 			return 1
@@ -147,7 +147,7 @@ trap 'rm -f "${SYMBOLS_FILE}" "${MISSING_HEADER_FILE}" "${MISSING_EXPORTS_FILE}"
 : > "${MISSING_EXPORTS_FILE}"
 
 { grep -Eho 'syntaxBridge[A-Za-z0-9_]+[[:space:]]*\(' "${SOURCE_PATH}" || true; } \
-	| sed -E 's/[[:space:]]*\($//' \
+	| sed 's/[[:space:]]*($//' \
 	| sort -u > "${SYMBOLS_FILE}"
 
 if [ ! -s "${SYMBOLS_FILE}" ]; then

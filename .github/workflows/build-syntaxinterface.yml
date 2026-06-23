@@ -48,13 +48,14 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - id: set-matrix
+        # when updating windows-2022 to windows-latest (2026 as if writing) make sure to change "2022" in the steps below
         run: |
           ALL='{"include":[
             {"os":"ubuntu-latest",    "arch":"x86_64","artifact":"libSyntaxInterface-linux-x86_64.so",     "lib_file":"libSyntaxInterface.so"},
             {"os":"ubuntu-24.04-arm", "arch":"arm64", "artifact":"libSyntaxInterface-linux-arm64.so",      "lib_file":"libSyntaxInterface.so"},
             {"os":"macos-15-intel",   "arch":"x86_64","artifact":"libSyntaxInterface-darwin-x86_64.dylib", "lib_file":"libSyntaxInterface.dylib"},
             {"os":"macos-15",         "arch":"arm64", "artifact":"libSyntaxInterface-darwin-arm64.dylib",  "lib_file":"libSyntaxInterface.dylib"},
-            {"os":"windows-latest",   "arch":"x86_64","artifact":"SyntaxInterface-windows-x86_64.dll",     "lib_file":"SyntaxInterface.dll"}
+            {"os":"windows-2022",     "arch":"x86_64","artifact":"SyntaxInterface-windows-x86_64.dll",     "lib_file":"SyntaxInterface.dll"}
           ]}'
           FILTER='${{ github.event.inputs.os_filter }}'
           if [ -z "$FILTER" ]; then
@@ -150,6 +151,15 @@ jobs:
               copy C:\rtools45\ucrt64\bin\make.exe C:\rtools45\ucrt64\bin\mingw32-make.exe
             )
           )
+          echo C:\rtools45\ucrt64\bin>>"%GITHUB_PATH%"
+
+      - name: Test Rtools45 ucrt64 compiler (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          echo int main(void) { return 0; } > "%RUNNER_TEMP%\test.c"
+          gcc "%RUNNER_TEMP%\test.c" -o "%RUNNER_TEMP%\test.exe"
+          "%RUNNER_TEMP%\test.exe"
 
       # ---- Install Qt from source and build static ----
 
