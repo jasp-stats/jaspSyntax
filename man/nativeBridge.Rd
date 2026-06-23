@@ -1,4 +1,5 @@
 \name{nativeBridge}
+\alias{nativeBridge}
 \alias{analysisOptionsFromJaspFile}
 \alias{cleanUp}
 \alias{generateAnalysisWrapper}
