@@ -147,7 +147,7 @@ trap 'rm -f "${SYMBOLS_FILE}" "${MISSING_HEADER_FILE}" "${MISSING_EXPORTS_FILE}"
 : > "${MISSING_EXPORTS_FILE}"
 
 { grep -Eho 'syntaxBridge[A-Za-z0-9_]+[[:space:]]*\(' "${SOURCE_PATH}" || true; } \
-	| sed 's/[[:space:]]*\($//' \
+	| sed 's/[[:space:]]*($//' \
 	| sort -u > "${SYMBOLS_FILE}"
 
 if [ ! -s "${SYMBOLS_FILE}" ]; then
