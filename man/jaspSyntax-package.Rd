@@ -33,10 +33,6 @@ JASP Team
 
 Maintainer: JASP Team <info@jasp-stats.org>
 }
-\references{
-  This optional section can contain literature or other references for
-  background information.
-}
 \keyword{ package }
 \seealso{
 \code{\link{readAnalysisOptionsFromJaspFile}},

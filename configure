@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # To manually specify a location for JASP_BUILD_DIR or JASP_SOURCE_DIR do
 #
 # options(configure.vars = c(jaspSyntax = "JASP_SOURCE_DIR='<path>'"))
@@ -19,45 +19,45 @@ SOURCE_BUNDLE_JASP_DESKTOP_SHA=""
 SOURCE_BUNDLE_JASP_SYNTAX_SHA=""
 SOURCE_BUNDLE_QT_VERSION=""
 
-function sourceBundleProvenanceValue() {
-	local FILE_PATH="$1"
-	local KEY="$2"
+sourceBundleProvenanceValue() {
+	_sbpv_path="$1"
+	_sbpv_key="$2"
 
-	if [ -f "${FILE_PATH}" ]; then
-		grep -E "^${KEY}=" "${FILE_PATH}" | head -n 1 | sed -E 's/^[^=]+=//'
+	if [ -f "${_sbpv_path}" ]; then
+		grep -E "^${_sbpv_key}=" "${_sbpv_path}" | head -n 1 | sed 's/^[^=][^=]*=//'
 	fi
 }
 
 
-function downloadFile() {
+downloadFile() {
 	# downloadFile <url> <output_path>
 	# Downloads a file using curl or wget. Exits on failure.
-	local URL="$1"
-	local OUTPUT="$2"
-	local DOWNLOAD_SUCCESS=1
+	_dl_url="$1"
+	_dl_output="$2"
+	_dl_success=1
 
 	if command -v curl >/dev/null 2>&1; then
-		echo "Downloading ${URL}"
-		curl --fail --silent --location --output "${OUTPUT}" "${URL}"
-		DOWNLOAD_SUCCESS=$?
+		echo "Downloading ${_dl_url}"
+		curl --fail --silent --location --output "${_dl_output}" "${_dl_url}"
+		_dl_success=$?
 	fi
 
-	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
+	if [ "${_dl_success}" -ne "0" ]; then
 		if command -v wget >/dev/null 2>&1; then
-			echo "Trying wget for ${URL}"
-			wget --quiet -O "${OUTPUT}" "${URL}"
-			DOWNLOAD_SUCCESS=$?
+			echo "Trying wget for ${_dl_url}"
+			wget --quiet -O "${_dl_output}" "${_dl_url}"
+			_dl_success=$?
 		fi
 	fi
 
-	if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
-		echo "Failed to download: ${URL}"
+	if [ "${_dl_success}" -ne "0" ]; then
+		echo "Failed to download: ${_dl_url}"
 		return 1
 	fi
 	return 0
 }
 
-function loadFile() {
+loadFile() {
 	# loadFile <base_url> <filename>
 	# Downloads <base_url>/<filename> into src/<filename>.
 	if ! downloadFile "$1/$2" "src/$2"; then
@@ -68,40 +68,40 @@ Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually an
 	fi
 }
 
-function loadReleaseSourceBundle() {
-	local ARCHIVE_PATH="src/${SOURCE_BUNDLE_ASSET}"
-	local EXTRACT_DIR="src/.SyntaxInterface-sources"
-	local FILE_NAME
+loadReleaseSourceBundle() {
+	_lrsb_archive="src/${SOURCE_BUNDLE_ASSET}"
+	_lrsb_extract="src/.SyntaxInterface-sources"
+	_lrsb_fname=""
 
-	if ! downloadFile "${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}" "${ARCHIVE_PATH}"; then
+	if ! downloadFile "${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}" "${_lrsb_archive}"; then
 		printf "Installing jaspSyntax failed because the SyntaxInterface source bundle is missing from release %s.\n\
 Set JASP_SOURCE_DIR to a matching jasp-desktop checkout, or publish %s together with the SyntaxInterface binaries.\n" "${GITHUB_RELEASE_TAG}" "${SOURCE_BUNDLE_ASSET}"
 		exit 1
 	fi
 
-	rm -rf "${EXTRACT_DIR}"
-	mkdir -p "${EXTRACT_DIR}" "src/json"
-	tar -xzf "${ARCHIVE_PATH}" -C "${EXTRACT_DIR}"
+	rm -rf "${_lrsb_extract}"
+	mkdir -p "${_lrsb_extract}" "src/json"
+	tar -xzf "${_lrsb_archive}" -C "${_lrsb_extract}"
 
-	if [ ! -f "${EXTRACT_DIR}/SyntaxInterface/syntaxbridge_interface.h" ]; then
+	if [ ! -f "${_lrsb_extract}/SyntaxInterface/syntaxbridge_interface.h" ]; then
 		echo "Installing jaspSyntax failed because ${SOURCE_BUNDLE_ASSET} does not contain SyntaxInterface/syntaxbridge_interface.h"
 		exit 1
 	fi
 
-	cp "${EXTRACT_DIR}/SyntaxInterface/syntaxbridge_interface.h" "${SYNTAXINTERFACE_HEADER_PATH}"
-	for FILE_NAME in ${JSON_FILES}; do
-		cp "${EXTRACT_DIR}/Common/json/${FILE_NAME}" "src/json/${FILE_NAME}"
+	cp "${_lrsb_extract}/SyntaxInterface/syntaxbridge_interface.h" "${SYNTAXINTERFACE_HEADER_PATH}"
+	for _lrsb_fname in ${JSON_FILES}; do
+		cp "${_lrsb_extract}/Common/json/${_lrsb_fname}" "src/json/${_lrsb_fname}"
 	done
 
-	if [ -f "${EXTRACT_DIR}/BUILD_PROVENANCE" ]; then
+	if [ -f "${_lrsb_extract}/BUILD_PROVENANCE" ]; then
 		SOURCE_BUNDLE_PROVENANCE_ORIGIN="${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}:BUILD_PROVENANCE"
-		SOURCE_BUNDLE_JASP_DESKTOP_REF=$(sourceBundleProvenanceValue "${EXTRACT_DIR}/BUILD_PROVENANCE" "jasp_desktop_ref")
-		SOURCE_BUNDLE_JASP_DESKTOP_SHA=$(sourceBundleProvenanceValue "${EXTRACT_DIR}/BUILD_PROVENANCE" "jasp_desktop_sha")
-		SOURCE_BUNDLE_JASP_SYNTAX_SHA=$(sourceBundleProvenanceValue "${EXTRACT_DIR}/BUILD_PROVENANCE" "jasp_syntax_sha")
-		SOURCE_BUNDLE_QT_VERSION=$(sourceBundleProvenanceValue "${EXTRACT_DIR}/BUILD_PROVENANCE" "qt_version")
+		SOURCE_BUNDLE_JASP_DESKTOP_REF=$(sourceBundleProvenanceValue "${_lrsb_extract}/BUILD_PROVENANCE" "jasp_desktop_ref")
+		SOURCE_BUNDLE_JASP_DESKTOP_SHA=$(sourceBundleProvenanceValue "${_lrsb_extract}/BUILD_PROVENANCE" "jasp_desktop_sha")
+		SOURCE_BUNDLE_JASP_SYNTAX_SHA=$(sourceBundleProvenanceValue "${_lrsb_extract}/BUILD_PROVENANCE" "jasp_syntax_sha")
+		SOURCE_BUNDLE_QT_VERSION=$(sourceBundleProvenanceValue "${_lrsb_extract}/BUILD_PROVENANCE" "qt_version")
 	fi
 
-	rm -rf "${EXTRACT_DIR}" "${ARCHIVE_PATH}"
+	rm -rf "${_lrsb_extract}" "${_lrsb_archive}"
 	SYNTAXINTERFACE_HEADER_ORIGIN="${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}:SyntaxInterface/syntaxbridge_interface.h"
 }
 
@@ -154,21 +154,21 @@ SYNTAXINTERFACE_HEADER_ORIGIN=""
 SYNTAXINTERFACE_BINARY_PATH="src/${DLL_NAME}"
 SYNTAXINTERFACE_BINARY_ORIGIN=""
 
-function fileSha256() {
-	local FILE_PATH="$1"
+fileSha256() {
+	_fs_path="$1"
 
-	if [ ! -f "${FILE_PATH}" ]; then
+	if [ ! -f "${_fs_path}" ]; then
 		echo "unavailable"
 	elif command -v sha256sum >/dev/null 2>&1; then
-		sha256sum "${FILE_PATH}" | awk '{print $1}'
+		sha256sum "${_fs_path}" | awk '{print $1}'
 	elif command -v shasum >/dev/null 2>&1; then
-		shasum -a 256 "${FILE_PATH}" | awk '{print $1}'
+		shasum -a 256 "${_fs_path}" | awk '{print $1}'
 	else
 		echo "unavailable"
 	fi
 }
 
-function writeSyntaxInterfaceProvenance() {
+writeSyntaxInterfaceProvenance() {
 	if [ -z "${SYNTAXINTERFACE_HEADER_ORIGIN}" ]; then
 		SYNTAXINTERFACE_HEADER_ORIGIN="local:${SYNTAXINTERFACE_HEADER_PATH}"
 	fi
@@ -205,7 +205,7 @@ EOF
 
 JSON_FILES="allocator.h assertions.h config.h forwards.h json.h json_features.h json_reader.cpp json_tool.h json_value.cpp json_valueiterator.inl json_writer.cpp reader.h value.h version.h writer.h"
 
-if [[ "${JASP_SOURCE_DIR}" ]]; then
+if [ -n "${JASP_SOURCE_DIR}" ]; then
 	echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
 	PKG_CXXFLAGS="-I\"${JASP_SOURCE_DIR}/SyntaxInterface\" -I\"${JASP_SOURCE_DIR}/Common\""
 	mkdir -p 'src/json'
@@ -230,11 +230,11 @@ fi
 
 # ---------- Download pre-built library if needed ----------
 
-if [[ "${JASPSYNTAX_LIB_PATH}" ]]; then
+if [ -n "${JASPSYNTAX_LIB_PATH}" ]; then
 	echo "Using JASPSYNTAX_LIB_PATH: ${JASPSYNTAX_LIB_PATH}"
 	SYNTAXINTERFACE_BINARY_ORIGIN="${JASPSYNTAX_LIB_PATH}"
 	cp "${JASPSYNTAX_LIB_PATH}" "src/${DLL_NAME}"
-elif [[ "${JASP_BUILD_DIR}" ]]; then
+elif [ -n "${JASP_BUILD_DIR}" ]; then
 	echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 	SYNTAXINTERFACE_BINARY_ORIGIN="${JASP_BUILD_DIR}/SyntaxInterface/${DLL_NAME}"
 	cp "${SYNTAXINTERFACE_BINARY_ORIGIN}" "src/${DLL_NAME}"

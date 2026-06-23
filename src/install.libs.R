@@ -5,7 +5,7 @@ if (!file.exists(package_library)) {
 }
 
 shared_libraries <- Sys.glob(c("*.dll", "*.so", "*.dylib"))
-metadata_files <- Sys.glob("*.provenance")
+metadata_files <- Sys.glob(c("*.provenance", "symbols.rds"))
 files <- unique(c(package_library, shared_libraries, metadata_files))
 files <- files[file.exists(files)]
 
