@@ -65,7 +65,6 @@ Either download from \"https://github.com/jasp-stats/jasp-desktop/\" manually an
 loadReleaseSourceBundle() {
 	ARCHIVE_PATH="src/${SOURCE_BUNDLE_ASSET}"
 	EXTRACT_DIR="src/.SyntaxInterface-sources"
-	FILE_NAME
 
 	if ! downloadFile "${GITHUB_RELEASE_URL}/${SOURCE_BUNDLE_ASSET}" "${ARCHIVE_PATH}"; then
 		printf "Installing jaspSyntax failed because the SyntaxInterface source bundle is missing from release %s.\n\
