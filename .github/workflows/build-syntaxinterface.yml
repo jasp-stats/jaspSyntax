@@ -151,6 +151,15 @@ jobs:
               copy C:\rtools45\ucrt64\bin\make.exe C:\rtools45\ucrt64\bin\mingw32-make.exe
             )
           )
+          echo C:\rtools45\ucrt64\bin>>"%GITHUB_PATH%"
+
+      - name: Test Rtools45 ucrt64 compiler (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          echo int main(void) { return 0; } > "%RUNNER_TEMP%\test.c"
+          gcc "%RUNNER_TEMP%\test.c" -o "%RUNNER_TEMP%\test.exe"
+          "%RUNNER_TEMP%\test.exe"
 
       # ---- Install Qt from source and build static ----
 
