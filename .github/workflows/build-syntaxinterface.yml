@@ -19,9 +19,18 @@ on:
         required: false
         default: 'syntaxinterface-libs'
       os_filter:
-        description: 'Limit build to one runner (e.g. macos-15, windows-latest, ubuntu-latest, ubuntu-24.04-arm, macos-15-intel). Leave empty to build all.'
+        description: 'Limit the build to one runner, or build all of them. A full build also refreshes SHA256SUMS and the release notes.'
         required: false
-        default: ''
+        type: choice
+        # Keep these in sync with the matrix in the setup job below.
+        options:
+          - all
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-15-intel
+          - macos-15
+          - windows-2022
+        default: all
 #  schedule:
 #    - cron: '0 6 1,15 * *'   # 1st and 15th of each month at 06:00 UTC
 
@@ -48,7 +57,8 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix:     ${{ steps.set-matrix.outputs.matrix }}
+      full_build: ${{ steps.set-matrix.outputs.full_build }}
     steps:
       - id: set-matrix
         # when updating windows-2022 to windows-latest (2026 as of writing) make sure to update VCVARSALL above
@@ -61,11 +71,19 @@ jobs:
             {"os":"windows-2022",     "arch":"x86_64","artifact":"SyntaxInterface-windows-x86_64.dll",     "lib_file":"SyntaxInterface.dll"}
           ]}'
           FILTER='${{ github.event.inputs.os_filter }}'
-          if [ -z "$FILTER" ]; then
-            echo "matrix=$(echo "$ALL" | jq -c '.')" >> "$GITHUB_OUTPUT"
+          if [ -z "$FILTER" ] || [ "$FILTER" = "all" ]; then
+            MATRIX=$(echo "$ALL" | jq -c '.')
+            echo "full_build=true" >> "$GITHUB_OUTPUT"
           else
-            echo "matrix=$(echo "$ALL" | jq -c --arg os "$FILTER" '{include:[.include[]|select(.os==$os)]}')" >> "$GITHUB_OUTPUT"
+            MATRIX=$(echo "$ALL" | jq -c --arg os "$FILTER" '{include:[.include[]|select(.os==$os)]}')
+            echo "full_build=false" >> "$GITHUB_OUTPUT"
           fi
+          # An empty matrix does not fail: the build job is silently skipped and so is the release.
+          if [ "$(echo "$MATRIX" | jq '.include | length')" -eq 0 ]; then
+            echo "::error::os_filter '$FILTER' matches no runner. Valid values: all, $(echo "$ALL" | jq -r '[.include[].os] | join(", ")')"
+            exit 1
+          fi
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
   # ---------------------------------------------------------------------------
   build:
@@ -387,16 +405,16 @@ jobs:
 
       # Full build: regenerate checksums and release notes from the source bundle.
       - name: Generate checksums
-        if: github.event.inputs.os_filter == ''
+        if: needs.setup.outputs.full_build == 'true'
         working-directory: libs
         run: sha256sum * > SHA256SUMS
 
       - name: Show checksums
-        if: github.event.inputs.os_filter == ''
+        if: needs.setup.outputs.full_build == 'true'
         run: cat libs/SHA256SUMS
 
       - name: Write release notes
-        if: github.event.inputs.os_filter == ''
+        if: needs.setup.outputs.full_build == 'true'
         shell: bash
         run: |
           tar -xOf libs/SyntaxInterface-sources.tar.gz ./BUILD_PROVENANCE > BUILD_PROVENANCE
@@ -417,7 +435,7 @@ jobs:
           EOF
 
       - name: Create or update release (full build)
-        if: github.event.inputs.os_filter == ''
+        if: needs.setup.outputs.full_build == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -431,7 +449,7 @@ jobs:
       # Single-OS build: upload only the library file; leave release notes and
       # the full SHA256SUMS from the last complete build untouched.
       - name: Upload library to release (single OS)
-        if: github.event.inputs.os_filter != ''
+        if: needs.setup.outputs.full_build != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
