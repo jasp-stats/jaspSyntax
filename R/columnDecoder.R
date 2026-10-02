@@ -145,8 +145,13 @@ decodeColumnText <- function(text, encoderContext = NULL) {
     return(FALSE)
   }
 
+  # Case-insensitive, and deliberately permissive. Encoded names are minted with more than one
+  # spelling of the prefix - DataSet::setupEncoderPrefix() uses "JASPColumn_<datasetId>_" while the
+  # process-global encoder defaults to "JaspColumn_" - and this pattern only decides whether it is
+  # worth calling the decoder at all. A false positive costs one wasted call; a false negative means
+  # the text is returned still encoded, which is how "JASPColumn_1_15_Encoded" reached results.
   any(grepl(
-    "(JaspColumn_[[:alnum:]_]+_Encoded|JaspExtraOptions_[[:alnum:]_]+_Encoded|jaspColumn[0-9]+)",
+    "(?i)(Jasp(?:Column|ExtraOptions)_[[:alnum:]_]+_Encoded|jaspColumn[0-9]+)",
     text,
     perl = TRUE
   ), na.rm = TRUE)
