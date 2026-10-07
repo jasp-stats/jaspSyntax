@@ -29,8 +29,25 @@ loadDataSet <- function(data) {
     invisible(.Call(`_jaspSyntax_loadDataSet`, data))
 }
 
+#' Load a named list of datasets for a multi-dataset aware analysis (syntax mode).
+#' Each entry becomes its own DataSet in the bridge workspace (real id + column encoder),
+#' titled with the list name; the first entry is the primary. State is cleared first, so
+#' repeated calls rebuild cleanly.
+loadDataSets <- function(datasets) {
+    invisible(.Call(`_jaspSyntax_loadDataSets`, datasets))
+}
+
 loadQmlAndParseOptions <- function(moduleName, analysisName, qmlFile, options, version, preloadData) {
     .Call(`_jaspSyntax_loadQmlAndParseOptions`, moduleName, analysisName, qmlFile, options, version, preloadData)
+}
+
+#' Parse options through the QML form and return the FULL bridge status in pieces:
+#' list(options = <json string>, multiDataSetJson = <json string or ""> ) -
+#' multiDataSetJson ({ ids, names }) is present for multi-dataset aware analyses and pairs
+#' with the per-dataset slices queued in the bridge (jaspBase::runJaspResults reads them via
+#' .readDataSetRequestedNative). Strings all the way through: no R-side json re-serialization.
+loadQmlAndParseOptionsStatus <- function(moduleName, analysisName, qmlFile, options, version, preloadData) {
+    .Call(`_jaspSyntax_loadQmlAndParseOptionsStatus`, moduleName, analysisName, qmlFile, options, version, preloadData)
 }
 
 generateModuleWrappers <- function(modulePath) {

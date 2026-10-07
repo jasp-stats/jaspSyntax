@@ -186,6 +186,53 @@ void loadDataSet(Rcpp::List data)
 	});
 }
 
+//' Load a named list of datasets for a multi-dataset aware analysis (syntax mode).
+//' Each entry becomes its own DataSet in the bridge workspace (real id + column encoder),
+//' titled with the list name; the first entry is the primary. State is cleared first, so
+//' repeated calls rebuild cleanly.
+// [[Rcpp::export]]
+void loadDataSets(Rcpp::List datasets)
+{
+	SEXP namesR = datasets.names();
+
+	if (namesR == R_NilValue)
+		Rcpp::stop("`datasets` must be a named list of data.frames");
+
+	Rcpp::CharacterVector names(namesR);
+
+	if (names.size() != datasets.size())
+		Rcpp::stop("`datasets` must have exactly one name per dataset");
+
+	for (int i = 0; i < datasets.size(); i++)
+	{
+		const std::string name = Rcpp::as<std::string>(names[i]);
+
+		if (name.empty())
+			Rcpp::stop("`datasets` entry %d has no name", i + 1);
+
+		for (int j = 0; j < i; j++)
+			if (Rcpp::as<std::string>(names[j]) == name)
+				Rcpp::stop("`datasets` has the name '%s' more than once; dataset titles must be unique", name.c_str());
+
+		if (!Rf_inherits(Rcpp::RObject(datasets[i]), "data.frame"))
+			Rcpp::stop("`datasets` entry '%s' is not a data.frame", name.c_str());
+	}
+
+	//Fresh start, then accumulate: the named loads keep every dataset in the workspace
+	//(see syntaxBridgeLoadDataSet), the titles are how the QML dataset selections refer to them.
+	clearNativeStateNative();
+
+	for (int i = 0; i < datasets.size(); i++)
+	{
+		const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(
+				Rcpp::as<Rcpp::List>(datasets[i]), Rcpp::as<std::string>(names[i]));
+
+		callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
+			syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
+		});
+	}
+}
+
 
 // [[Rcpp::export]]
 String loadQmlAndParseOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
@@ -212,6 +259,39 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 	static std::string result;
 	result = status["options"].toStyledString();
 	return result.c_str();
+}
+
+//' Parse options through the QML form and return the FULL bridge status in pieces:
+//' list(options = <json string>, multiDataSetJson = <json string or ""> ) -
+//' multiDataSetJson ({ ids, names }) is present for multi-dataset aware analyses and pairs
+//' with the per-dataset slices queued in the bridge (jaspBase::runJaspResults reads them via
+//' .readDataSetRequestedNative). Strings all the way through: no R-side json re-serialization.
+// [[Rcpp::export]]
+List loadQmlAndParseOptionsStatus(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
+{
+	std::string qmlFileStr		= qmlFile.get_cstring(),
+				optionsStr		= options.get_cstring(),
+				versionStr		= version.get_cstring(),
+				analysisNameStr	= analysisName.get_cstring(),
+				moduleNameStr	= moduleName.get_cstring();
+
+	Json::Value status = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeLoadQmlAndParseOptionsStatus", [&]() {
+			return syntaxBridgeLoadQmlAndParseOptionsStatus(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+		}),
+		"syntaxBridgeLoadQmlAndParseOptionsStatus"
+	);
+
+	if (!status["ok"].asBool())
+	{
+		std::string error = status.isMember("error") ? status["error"].asString() : "unknown error";
+		Rcpp::stop("Error when parsing options: %s", error.c_str());
+	}
+
+	List result;
+	result["options"]			= status["options"].toStyledString();
+	result["multiDataSetJson"]	= status.isMember("multiDataSetJson") ? status["multiDataSetJson"].toStyledString() : std::string("");
+	return result;
 }
 
 // [[Rcpp::export]]
