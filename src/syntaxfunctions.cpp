@@ -537,3 +537,43 @@ Rcpp::CharacterVector decodeColumnTextNative(Rcpp::CharacterVector values, Strin
 
 
 
+
+//' Decode a Whole JSON Payload Against Every Bridge Encoder
+//'
+//' Runs the engine's send-string equivalent over a JSON payload (an analysis' results
+//' json, say): each DataSet's own column encoder in the bridge workspace, then the
+//' extra-options encoder, then the process-global one. An encoder only replaces the exact
+//' tokens it minted itself, so decoding with all of them is safe for multi-dataset runs
+//' regardless of which dataset was shown last. Text that is not valid JSON is returned
+//' unchanged; empty input is returned as-is.
+// [[Rcpp::export]]
+String decodeJsonText(String json)
+{
+	if (json == NA_STRING)
+		return json;
+
+	const std::string jsonStr = json.get_cstring();
+	if (jsonStr.empty())
+		return json;
+
+	Json::Value decoded = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeDecodeJsonText", [&]() {
+			return syntaxBridgeDecodeJsonText(jsonStr.c_str());
+		}),
+		"syntaxBridgeDecodeJsonText"
+	);
+
+	if (!decoded.isObject() || !decoded.isMember("ok") || !decoded["ok"].isBool())
+		Rcpp::stop("syntaxBridgeDecodeJsonText returned an unexpected payload.");
+
+	if (!decoded["ok"].asBool())
+	{
+		std::string error = decoded.isMember("error") ? decoded["error"].asString() : "unknown error";
+		Rcpp::stop("syntaxBridgeDecodeJsonText failed: %s", error.c_str());
+	}
+
+	if (!decoded.isMember("text") || !decoded["text"].isString())
+		Rcpp::stop("syntaxBridgeDecodeJsonText returned no decoded text.");
+
+	return std::string(decoded["text"].asString());
+}

@@ -207,6 +207,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// decodeJsonText
+String decodeJsonText(String json);
+RcppExport SEXP _jaspSyntax_decodeJsonText(SEXP jsonSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type json(jsonSEXP);
+    rcpp_result_gen = Rcpp::wrap(decodeJsonText(json));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_cleanUp", (DL_FUNC) &_jaspSyntax_cleanUp, 0},
@@ -227,6 +238,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_getVariableNames", (DL_FUNC) &_jaspSyntax_getVariableNames, 0},
     {"_jaspSyntax_columnEncoderContextNative", (DL_FUNC) &_jaspSyntax_columnEncoderContextNative, 0},
     {"_jaspSyntax_decodeColumnTextNative", (DL_FUNC) &_jaspSyntax_decodeColumnTextNative, 2},
+    {"_jaspSyntax_decodeJsonText", (DL_FUNC) &_jaspSyntax_decodeJsonText, 1},
     {NULL, NULL, 0}
 };
 
