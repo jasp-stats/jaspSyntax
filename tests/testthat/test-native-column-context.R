@@ -17,21 +17,6 @@ contextColumnNames <- function(context) {
   vapply(context$columns, function(column) column$name, character(1L))
 }
 
-contextDecodeExpectation <- function(context) {
-  columnNames <- contextColumnNames(context)
-  c(
-    columnNames[[1L]],
-    columnNames[[2L]],
-    paste0("model uses ", columnNames[[1L]], " and ", columnNames[[2L]])
-  )
-}
-
-loadContextDataset <- function(dataset) {
-  jaspSyntax::clearNativeState()
-  jaspSyntax::loadDataSet(dataset)
-  jaspSyntax::columnEncoderContext()
-}
-
 test_that("native decoder contexts can be interleaved without mutating live state", {
   localNativeColumnBridge()
   on.exit(jaspSyntax::clearNativeState(), add = TRUE)
@@ -54,36 +39,48 @@ test_that("native decoder contexts can be interleaved without mutating live stat
     )
   )
 
-  contexts <- lapply(datasets, loadContextDataset)
+  # Real bridge state per dataset: the context AND the encoded tokens the dataset's columns
+  # actually mint (DataSet::setupEncoderPrefix namespaces them as JASPColumn_<dataSetId>_<n>
+  # _Encoded). The ids restart after every clear, so the token strings collide across these
+  # three datasets - replaying a context must resolve them in the namespace it was captured
+  # in, whichever dataset is live.
+  state <- lapply(datasets, function(dataset) {
+    jaspSyntax::clearNativeState()
+    jaspSyntax::loadDataSet(dataset)
+    context <- jaspSyntax::columnEncoderContext()
+    list(
+      context = context,
+      tokens = names(jaspSyntax::readLoadedDataset(decode = FALSE)),
+      columnNames = names(dataset)
+    )
+  })
   for (datasetName in names(datasets)) {
-    expect_equal(sort(contextColumnNames(contexts[[datasetName]])), names(datasets[[datasetName]]))
+    expect_equal(sort(contextColumnNames(state[[datasetName]]$context)), names(datasets[[datasetName]]))
+    expect_match(state[[datasetName]]$tokens[[1L]], "^JASPColumn_[0-9]+_[0-9]+_Encoded$")
   }
 
   jaspSyntax::clearNativeState()
   jaspSyntax::loadDataSet(datasets$alpha)
   liveContext <- jaspSyntax::columnEncoderContext()
+  liveTokens <- state$alpha$tokens
+  liveExpected <- names(datasets$alpha)
 
-  tokens <- c(
-    "JaspColumn_0_Encoded",
-    "JaspColumn_3_Encoded",
-    "model uses JaspColumn_0_Encoded and JaspColumn_3_Encoded"
-  )
-  liveExpected <- contextDecodeExpectation(liveContext)
-  expect_equal(jaspSyntax::decodeColumnText(tokens), liveExpected)
+  expect_equal(jaspSyntax::decodeColumnText(liveTokens), liveExpected)
 
-  interleavedContexts <- contexts[c("beta", "gamma", "alpha", "beta", "alpha", "gamma")]
-  for (context in interleavedContexts) {
+  interleavedNames <- c("beta", "gamma", "alpha", "beta", "alpha", "gamma")
+  for (datasetName in interleavedNames) {
+    entry <- state[[datasetName]]
     expect_equal(
-      jaspSyntax::decodeColumnText(tokens, context),
-      contextDecodeExpectation(context)
+      jaspSyntax::decodeColumnText(entry$tokens, entry$context),
+      entry$columnNames
     )
-    expect_equal(jaspSyntax::decodeColumnText(tokens), liveExpected)
+    expect_equal(jaspSyntax::decodeColumnText(liveTokens), liveExpected)
   }
 
   restoredContext <- jaspSyntax::columnEncoderContext()
   expect_equal(restoredContext$columns, liveContext$columns)
   expect_equal(restoredContext$extra, liveContext$extra)
-  expect_equal(jaspSyntax::decodeColumnText(tokens), liveExpected)
+  expect_equal(jaspSyntax::decodeColumnText(liveTokens), liveExpected)
 })
 
 test_that("native decoder C API reports malformed contexts without corrupting live state", {
