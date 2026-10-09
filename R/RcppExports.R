@@ -26,15 +26,18 @@ setParameterNative <- function(name, value) {
 }
 
 loadDataSet <- function(data) {
-    invisible(.Call(`_jaspSyntax_loadDataSet`, data))
+    .Call(`_jaspSyntax_loadDataSet`, data)
 }
 
 #' Load a named list of datasets for a multi-dataset aware analysis (syntax mode).
 #' Each entry becomes its own DataSet in the bridge workspace (real id + column encoder),
 #' titled with the list name; the first entry is the primary. State is cleared first, so
 #' repeated calls rebuild cleanly.
+#' @return named integer vector with the REAL database id of every loaded dataset
+#'   (c(Name = id, ...)): the invariant handle for dataset selection options and logging,
+#'   instead of referring to datasets by title.
 loadDataSets <- function(datasets) {
-    invisible(.Call(`_jaspSyntax_loadDataSets`, datasets))
+    .Call(`_jaspSyntax_loadDataSets`, datasets)
 }
 
 loadQmlAndParseOptions <- function(moduleName, analysisName, qmlFile, options, version, preloadData) {

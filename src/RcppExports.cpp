@@ -68,23 +68,25 @@ BEGIN_RCPP
 END_RCPP
 }
 // loadDataSet
-void loadDataSet(Rcpp::List data);
+int loadDataSet(Rcpp::List data);
 RcppExport SEXP _jaspSyntax_loadDataSet(SEXP dataSEXP) {
 BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::List >::type data(dataSEXP);
-    loadDataSet(data);
-    return R_NilValue;
+    rcpp_result_gen = Rcpp::wrap(loadDataSet(data));
+    return rcpp_result_gen;
 END_RCPP
 }
 // loadDataSets
-void loadDataSets(Rcpp::List datasets);
+Rcpp::IntegerVector loadDataSets(Rcpp::List datasets);
 RcppExport SEXP _jaspSyntax_loadDataSets(SEXP datasetsSEXP) {
 BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::List >::type datasets(datasetsSEXP);
-    loadDataSets(datasets);
-    return R_NilValue;
+    rcpp_result_gen = Rcpp::wrap(loadDataSets(datasets));
+    return rcpp_result_gen;
 END_RCPP
 }
 // loadQmlAndParseOptions

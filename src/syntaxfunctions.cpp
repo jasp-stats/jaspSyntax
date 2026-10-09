@@ -177,12 +177,14 @@ bool setParameterNative(String name, SEXP value)
 }
 
 // [[Rcpp::export]]
-void loadDataSet(Rcpp::List data)
+int loadDataSet(Rcpp::List data)
 {
 	const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(data);
 
-	callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
-		syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
+	//Returns the REAL database id the bridge assigned: the invariant handle to use inside
+	//scripts and wrappers; the title stays a display affordance and a convenience input.
+	return callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
+		return syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
 	});
 }
 
@@ -190,8 +192,11 @@ void loadDataSet(Rcpp::List data)
 //' Each entry becomes its own DataSet in the bridge workspace (real id + column encoder),
 //' titled with the list name; the first entry is the primary. State is cleared first, so
 //' repeated calls rebuild cleanly.
+//' @return named integer vector with the REAL database id of every loaded dataset
+//'   (c(Name = id, ...)): the invariant handle for dataset selection options and logging,
+//'   instead of referring to datasets by title.
 // [[Rcpp::export]]
-void loadDataSets(Rcpp::List datasets)
+Rcpp::IntegerVector loadDataSets(Rcpp::List datasets)
 {
 	SEXP namesR = datasets.names();
 
@@ -222,15 +227,26 @@ void loadDataSets(Rcpp::List datasets)
 	//(see syntaxBridgeLoadDataSet), the titles are how the QML dataset selections refer to them.
 	clearNativeStateNative();
 
+	Rcpp::IntegerVector dataSetIds(datasets.size());
+
 	for (int i = 0; i < datasets.size(); i++)
 	{
+		const std::string name = Rcpp::as<std::string>(names[i]);
 		const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(
-				Rcpp::as<Rcpp::List>(datasets[i]), Rcpp::as<std::string>(names[i]));
+				Rcpp::as<Rcpp::List>(datasets[i]), name);
 
-		callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
-			syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
+		const int dataSetId = callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
+			return syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
 		});
+
+		if (dataSetId < 0)
+			Rcpp::stop("the bridge did not report a dataset id for '%s'", name.c_str());
+
+		dataSetIds[i] = dataSetId;
 	}
+
+	dataSetIds.names() = names;
+	return dataSetIds;
 }
 
 
