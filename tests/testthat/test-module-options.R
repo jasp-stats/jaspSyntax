@@ -134,7 +134,10 @@ test_that("readAnalysisOptionsFromQml returns Desktop runtime-encoded variable o
 
   expect_true("variables.types" %in% names(opts))
   expect_equal(opts$`variables.types`, list("scale"))
-  expect_match(opts$variables[[1]], "^JaspColumn_.*_Encoded$")
+  # Engine-parity namespace: the shown dataset's encoder mints JASPColumn_<dataSetId>_<n>_Encoded
+  expect_match(opts$variables[[1]], "^JASPColumn_[0-9]+_[0-9]+_Encoded$")
+  # ...and the very same value decodes back to the plain column name the user passed in
+  expect_equal(jaspSyntax::decodeColumnText(opts$variables[[1]]), "x")
 
   loadedDataset <- jaspSyntax::readLoadedDataset(decode = FALSE)
   expect_true(any(vapply(

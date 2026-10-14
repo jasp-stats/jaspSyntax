@@ -68,13 +68,25 @@ BEGIN_RCPP
 END_RCPP
 }
 // loadDataSet
-void loadDataSet(Rcpp::List data);
+int loadDataSet(Rcpp::List data);
 RcppExport SEXP _jaspSyntax_loadDataSet(SEXP dataSEXP) {
 BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::List >::type data(dataSEXP);
-    loadDataSet(data);
-    return R_NilValue;
+    rcpp_result_gen = Rcpp::wrap(loadDataSet(data));
+    return rcpp_result_gen;
+END_RCPP
+}
+// loadDataSets
+Rcpp::IntegerVector loadDataSets(Rcpp::List datasets);
+RcppExport SEXP _jaspSyntax_loadDataSets(SEXP datasetsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type datasets(datasetsSEXP);
+    rcpp_result_gen = Rcpp::wrap(loadDataSets(datasets));
+    return rcpp_result_gen;
 END_RCPP
 }
 // loadQmlAndParseOptions
@@ -90,6 +102,22 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< String >::type version(versionSEXP);
     Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
     rcpp_result_gen = Rcpp::wrap(loadQmlAndParseOptions(moduleName, analysisName, qmlFile, options, version, preloadData));
+    return rcpp_result_gen;
+END_RCPP
+}
+// loadQmlAndParseOptionsStatus
+List loadQmlAndParseOptionsStatus(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
+RcppExport SEXP _jaspSyntax_loadQmlAndParseOptionsStatus(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type moduleName(moduleNameSEXP);
+    Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
+    Rcpp::traits::input_parameter< String >::type qmlFile(qmlFileSEXP);
+    Rcpp::traits::input_parameter< String >::type options(optionsSEXP);
+    Rcpp::traits::input_parameter< String >::type version(versionSEXP);
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(loadQmlAndParseOptionsStatus(moduleName, analysisName, qmlFile, options, version, preloadData));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -181,6 +209,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// decodeJsonText
+String decodeJsonText(String json);
+RcppExport SEXP _jaspSyntax_decodeJsonText(SEXP jsonSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type json(jsonSEXP);
+    rcpp_result_gen = Rcpp::wrap(decodeJsonText(json));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_cleanUp", (DL_FUNC) &_jaspSyntax_cleanUp, 0},
@@ -190,7 +229,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_clearNativeStateNative", (DL_FUNC) &_jaspSyntax_clearNativeStateNative, 0},
     {"_jaspSyntax_setParameterNative", (DL_FUNC) &_jaspSyntax_setParameterNative, 2},
     {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
+    {"_jaspSyntax_loadDataSets", (DL_FUNC) &_jaspSyntax_loadDataSets, 1},
     {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},
+    {"_jaspSyntax_loadQmlAndParseOptionsStatus", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptionsStatus, 6},
     {"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 1},
     {"_jaspSyntax_parseDescription", (DL_FUNC) &_jaspSyntax_parseDescription, 1},
     {"_jaspSyntax_loadDataSetFromJaspFile", (DL_FUNC) &_jaspSyntax_loadDataSetFromJaspFile, 1},
@@ -199,6 +240,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_getVariableNames", (DL_FUNC) &_jaspSyntax_getVariableNames, 0},
     {"_jaspSyntax_columnEncoderContextNative", (DL_FUNC) &_jaspSyntax_columnEncoderContextNative, 0},
     {"_jaspSyntax_decodeColumnTextNative", (DL_FUNC) &_jaspSyntax_decodeColumnTextNative, 2},
+    {"_jaspSyntax_decodeJsonText", (DL_FUNC) &_jaspSyntax_decodeJsonText, 1},
     {NULL, NULL, 0}
 };
 

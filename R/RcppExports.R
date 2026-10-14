@@ -25,12 +25,54 @@ setParameterNative <- function(name, value) {
     .Call(`_jaspSyntax_setParameterNative`, name, value)
 }
 
+#' Load a data frame into the bridge workspace (legacy single-dataset loader; unnamed, it
+#' becomes the shown dataset).
+#' @return the bridge-assigned database id of the loaded dataset, invisibly (mds-plan
+#'   C4/FULL-R s2: top-level calls must not print "[1] <id>"). The id is informational -
+#'   dataset selection options in syntax mode take the dataset TITLE, never an id.
+#' @examples
+#' \dontrun{
+#' id <- loadDataSet(iris)          # silent; id kept for logging only
+#' }
 loadDataSet <- function(data) {
     invisible(.Call(`_jaspSyntax_loadDataSet`, data))
 }
 
+#' Load a named list of datasets for a multi-dataset aware analysis (syntax mode).
+#' Each entry becomes its own DataSet in the bridge workspace (real id + column encoder),
+#' titled with the list name; the first entry is the primary. State is cleared first, so
+#' repeated calls rebuild cleanly.
+#' @return named integer vector with the bridge-assigned database id of every loaded
+#'   dataset (c(Name = id, ...)). The ids are INFORMATIONAL (logging, slicing results):
+#'   dataset selection options take the human string of the syntax surface (mds-plan C4) -
+#'   the bare dataset title for its default filter, or "title - filterName" for a saved
+#'   named filter of a live JASP session. A freshly loaded dataset has only its default
+#'   filter, so in full R a selection is simply the list name; ids are not selection
+#'   syntax and fail loudly.
+#' @examples
+#' \dontrun{
+#' ids <- loadDataSets(list(Alpha = iris, Beta = mtcars))
+#' # ... then the analysis' selection options take "Alpha" and "Beta", not ids.
+#' }
+loadDataSets <- function(datasets) {
+    .Call(`_jaspSyntax_loadDataSets`, datasets)
+}
+
 loadQmlAndParseOptions <- function(moduleName, analysisName, qmlFile, options, version, preloadData) {
     .Call(`_jaspSyntax_loadQmlAndParseOptions`, moduleName, analysisName, qmlFile, options, version, preloadData)
+}
+
+#' Parse options through the QML form and return the FULL bridge status in pieces:
+#' list(options = <json string>, multiDataSetJson = <json string or ""> ) -
+#' multiDataSetJson ({ ids, names }) is present for multi-dataset aware analyses and pairs
+#' with the per-dataset slices queued in the bridge (jaspBase::runJaspResults reads them via
+#' .readDataSetRequestedNative). Strings all the way through: no R-side json re-serialization.
+#' Dataset selection options are passed as syntax-surface strings - the bare dataset title
+#' for its default filter, "title - filterName" for a saved named filter (freshly loaded
+#' datasets have only the default) - which the bridge resolves to filter ids before binding
+#' (mds-plan C4); ids themselves are not accepted there.
+loadQmlAndParseOptionsStatus <- function(moduleName, analysisName, qmlFile, options, version, preloadData) {
+    .Call(`_jaspSyntax_loadQmlAndParseOptionsStatus`, moduleName, analysisName, qmlFile, options, version, preloadData)
 }
 
 generateModuleWrappers <- function(modulePath) {
@@ -63,5 +105,17 @@ columnEncoderContextNative <- function() {
 
 decodeColumnTextNative <- function(values, encoderContextJson) {
     .Call(`_jaspSyntax_decodeColumnTextNative`, values, encoderContextJson)
+}
+
+#' Decode a Whole JSON Payload Against Every Bridge Encoder
+#'
+#' Runs the engine's send-string equivalent over a JSON payload (an analysis' results
+#' json, say): each DataSet's own column encoder in the bridge workspace, then the
+#' extra-options encoder, then the process-global one. An encoder only replaces the exact
+#' tokens it minted itself, so decoding with all of them is safe for multi-dataset runs
+#' regardless of which dataset was shown last. Text that is not valid JSON is returned
+#' unchanged; empty input is returned as-is.
+decodeJsonText <- function(json) {
+    .Call(`_jaspSyntax_decodeJsonText`, json)
 }
 

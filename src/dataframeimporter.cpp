@@ -105,9 +105,13 @@ void DataFrameImporter::freeDataSet()
 	datasetStatic.columns = nullptr;
 }
 
-const SyntaxBridgeDataSet& DataFrameImporter::loadDataFrame(const Rcpp::List& dataframe)
+const SyntaxBridgeDataSet& DataFrameImporter::loadDataFrame(const Rcpp::List& dataframe, const std::string& name)
 {
 	freeDataSet();
+
+	//Empty name keeps the legacy single-dataset behaviour on the bridge side; a non-empty one
+	//becomes the DataSet title (multi-dataset syntax runs refer to datasets by it).
+	datasetStatic.name = strdup(name.c_str());
 
 	Rcpp::RObject namesListRObject = dataframe.names();
 	Rcpp::CharacterVector namesList;
