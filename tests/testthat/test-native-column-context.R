@@ -40,10 +40,10 @@ test_that("native decoder contexts can be interleaved without mutating live stat
   )
 
   # Real bridge state per dataset: the context AND the encoded tokens the dataset's columns
-  # actually mint (DataSet::setupEncoderPrefix namespaces them as JASPColumn_<dataSetId>_<n>
-  # _Encoded). The ids restart after every clear, so the token strings collide across these
-  # three datasets - replaying a context must resolve them in the namespace it was captured
-  # in, whichever dataset is live.
+  # actually mint (the shown filter's view namespaces them as JASPColumn_D<dsId>_F<filterId>_<n>
+  # _Encoded, mds-plan Phase 1). The ids restart after every clear, so the token strings collide
+  # across these three datasets - replaying a context must resolve them in the namespace it was
+  # captured in, whichever dataset is live.
   state <- lapply(datasets, function(dataset) {
     jaspSyntax::clearNativeState()
     jaspSyntax::loadDataSet(dataset)
@@ -56,7 +56,7 @@ test_that("native decoder contexts can be interleaved without mutating live stat
   })
   for (datasetName in names(datasets)) {
     expect_equal(sort(contextColumnNames(state[[datasetName]]$context)), names(datasets[[datasetName]]))
-    expect_match(state[[datasetName]]$tokens[[1L]], "^JASPColumn_[0-9]+_[0-9]+_Encoded$")
+    expect_match(state[[datasetName]]$tokens[[1L]], "^JASPColumn_D[0-9]+_F[0-9]+_[0-9]+_Encoded$")
   }
 
   jaspSyntax::clearNativeState()

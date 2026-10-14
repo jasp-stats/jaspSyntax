@@ -254,6 +254,10 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
 
 .isEncodedBridgeColumnName <- function(columnNames) {
   grepl("^JaspColumn_[[:alnum:]_]+_Encoded$", columnNames) |
+    # mds-plan Phase 1 (jasp-desktop D1.2): filter-view tokens are minted as
+    # JASPColumn_D<dsId>_F<filterId>_<index>_Encoded; recognise the shape so the
+    # native-decode-required guard keeps routing them through the bridge.
+    grepl("^JASPColumn_D[0-9]+_F[0-9]+_[[:alnum:]_]+_Encoded$", columnNames) |
     grepl("^jaspColumn[0-9]+$", columnNames)
 }
 
