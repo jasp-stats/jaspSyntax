@@ -70,7 +70,7 @@ decodeColumnText <- function(text, encoderContext = NULL) {
 
   if (is.null(rawContext)) {
     rawContext <- as.character(jsonlite::toJSON(
-      list(version = 1L, columns = columns, extra = extra),
+      list(version = 2L, columns = columns, extra = extra),
       auto_unbox = TRUE,
       null = "null"
     ))
@@ -78,7 +78,7 @@ decodeColumnText <- function(text, encoderContext = NULL) {
 
   structure(
     list(
-      version = 1L,
+      version = 2L,
       columns = columns,
       extra = extra,
       native = rawContext

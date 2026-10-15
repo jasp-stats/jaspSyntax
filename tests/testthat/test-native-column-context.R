@@ -96,7 +96,7 @@ test_that("native decoder C API reports malformed contexts without corrupting li
 
   rawContext <- jaspSyntax:::columnEncoderContextNative()
   parsedContext <- jsonlite::fromJSON(rawContext, simplifyVector = FALSE)
-  expect_equal(parsedContext$version, 1L)
+  expect_equal(parsedContext$version, 2L)
   expect_equal(sort(vapply(parsedContext$columns, `[[`, character(1L), "name")), names(dataset))
   expect_equal(parsedContext$extra, list())
 
