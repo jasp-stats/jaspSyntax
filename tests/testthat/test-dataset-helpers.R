@@ -145,14 +145,17 @@ test_that("decodeColumnNames strict flag is compatibility-only", {
   )
 })
 
-test_that("decodeColumnNames fails when native decoding leaves encoded names", {
+test_that("decodeColumnNames passes names the native table does not know through raw", {
   restoreDecoder <- localNativeColumnTextDecoder(stats::setNames(character(), character()))
   on.exit(restoreDecoder(), add = TRUE)
 
-  expect_error(
+  # The native table is strict: a miss stays raw (mds-plan C4/C16 - e.g. tokens
+  # of deleted filters). R must not second-guess the decoder with token-grammar
+  # checks of its own, so an unknown name comes back unchanged instead of
+  # raising.
+  expect_equal(
     jaspSyntax::decodeColumnNames("JaspColumn_1_Encoded"),
-    "left encoded column name",
-    fixed = TRUE
+    "JaspColumn_1_Encoded"
   )
 })
 
@@ -168,7 +171,9 @@ test_that("empty column encoder contexts do not fall through to live native stat
   )
   on.exit(restoreNative(), add = TRUE)
 
-  context <- jaspSyntax:::.newColumnEncoderContext()
+  context <- jaspSyntax:::.columnEncoderContextFromJson(
+    '{"version": 2, "columns": [], "extra": []}'
+  )
 
   expect_equal(
     jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", context),
@@ -187,8 +192,8 @@ test_that("decodeColumnText does not use R mapping replacement when native decod
   )
   on.exit(restoreNative(), add = TRUE)
 
-  context <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(list(name = "score", type = "scale"))
+  context <- jaspSyntax:::.columnEncoderContextFromJson(
+    '{"version": 2, "columns": [{"name": "score", "type": "scale"}], "extra": []}'
   )
   expect_error(
     jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", context),
@@ -216,7 +221,7 @@ test_that("decodeColumnText dispatches extra option tokens to the native decoder
   expect_equal(observed, "JaspExtraOptions_0_Encoded")
 })
 
-test_that("decodeColumnNames does not send raw names to the strict native decoder", {
+test_that("decodeColumnNames delegates the whole vector to the native decoder", {
   observed <- character(0)
   restoreNative <- localNamespaceBinding(
     "decodeColumnText",
@@ -230,6 +235,8 @@ test_that("decodeColumnNames does not send raw names to the strict native decode
   )
   on.exit(restoreNative(), add = TRUE)
 
+  # No R-side pre-filtering (mds-plan C14): raw names ride along and come back
+  # unchanged because the native table sweep is a no-op for them.
   expect_equal(
     jaspSyntax::decodeColumnNames(
       c("score", "score.scale", "JaspColumn_1_Encoded"),
@@ -237,12 +244,13 @@ test_that("decodeColumnNames does not send raw names to the strict native decode
     ),
     c("score", "score.scale", "score")
   )
-  expect_equal(observed, "JaspColumn_1_Encoded")
+  expect_equal(observed, c("score", "score.scale", "JaspColumn_1_Encoded"))
 
   expect_equal(
     jaspSyntax::decodeColumnNames(c("score", "score.scale"), strict = TRUE),
     c("score", "score.scale")
   )
+  expect_equal(observed, c("score", "score.scale", "JaspColumn_1_Encoded", "score", "score.scale"))
 })
 
 test_that("state readers fail loudly when decode is requested without decoder support", {
@@ -352,8 +360,8 @@ test_that("decodeAnalysisResults decodes native column names and factor value to
     c(JaspColumn_1_Encoded = "group")
   )
   on.exit(restoreDecoder(), add = TRUE)
-  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(list(name = "group", type = "nominal"))
+  encoderContext <- jaspSyntax:::.columnEncoderContextFromJson(
+    '{"version": 2, "columns": [{"name": "group", "type": "nominal"}], "extra": []}'
   )
 
   requestedDataset <- data.frame(
@@ -399,10 +407,12 @@ test_that("decodeAnalysisResults passes captured column encoder context to the n
     asNamespace("jaspSyntax")
   )
   on.exit(restoreDecoder(), add = TRUE)
-  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(
-      list(name = "group", type = "nominal"),
-      list(name = "phase", type = "nominal")
+  encoderContext <- jaspSyntax:::.columnEncoderContextFromJson(
+    paste(
+      '{"version": 2,',
+      '"columns": [{"name": "group", "type": "nominal"},',
+      '{"name": "phase", "type": "nominal"}],',
+      '"extra": []}'
     )
   )
 
@@ -447,8 +457,8 @@ test_that("decodeAnalysisResults maps factor values with decoded requested datas
     c(JaspColumn_1_Encoded = "group")
   )
   on.exit(restoreDecoder(), add = TRUE)
-  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(list(name = "group", type = "nominal"))
+  encoderContext <- jaspSyntax:::.columnEncoderContextFromJson(
+    '{"version": 2, "columns": [{"name": "group", "type": "nominal"}], "extra": []}'
   )
 
   requestedDataset <- data.frame(
@@ -597,10 +607,12 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
       JaspColumn_2_Encoded = "group"
     )
   )
-  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(
-      list(name = "score", type = "scale"),
-      list(name = "group", type = "nominal")
+  encoderContext <- jaspSyntax:::.columnEncoderContextFromJson(
+    paste(
+      '{"version": 2,',
+      '"columns": [{"name": "score", "type": "scale"},',
+      '{"name": "group", "type": "nominal"}],',
+      '"extra": []}'
     )
   )
   restoreContext <- localNamespaceBinding(

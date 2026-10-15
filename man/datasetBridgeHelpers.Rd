@@ -45,8 +45,9 @@ decodeColumnNames(columnNames, strict = FALSE)
 \item{columnNames}{Character vector of column names.}
 
 \item{strict}{Compatibility-only flag retained for callers that pass it.
-Encoded bridge names always require native decoding; raw/non-encoded names are
-returned unchanged.}
+Every name is handed to the native decoder; raw/non-token names come back
+unchanged because the native lookup table resolves only the tokens the bridge
+minted.}
 }
 \value{
 \code{loadAnalysisDataset()} returns a list with \code{loadedDataset},

@@ -134,8 +134,9 @@ test_that("readAnalysisOptionsFromQml returns Desktop runtime-encoded variable o
 
   expect_true("variables.types" %in% names(opts))
   expect_equal(opts$`variables.types`, list("scale"))
-  # Engine-parity namespace: the shown filter's VIEW mints JASPColumn_D<dsId>_F<filterId>_<n>
-  # _Encoded (mds-plan Phase 1; full regex retirement is D1.8)
+  # Engine-parity namespace (mds-plan C1/D1.8): the shown filter's VIEW mints
+  # JASPColumn_D<dsId>_F<filterId>_<n>_Encoded - shape pinned here, resolved and
+  # round-tripped exclusively through the native decoder below.
   expect_match(opts$variables[[1]], "^JASPColumn_D[0-9]+_F[0-9]+_[0-9]+_Encoded$")
   # ...and the very same value decodes back to the plain column name the user passed in
   expect_equal(jaspSyntax::decodeColumnText(opts$variables[[1]]), "x")
