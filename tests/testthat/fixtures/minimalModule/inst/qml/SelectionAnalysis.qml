@@ -9,11 +9,13 @@ Form
 {
 	VariablesForm
 	{
-		dataSetSelectionOption: "dataSetA"
-
+		// mds-plan D2.2/C10 moved dataSetSelectionOption from the form to the LISTS -
+		// the list that declares it is the namespace host (fixture re-pinned at the
+		// first libSyntaxInterface resync after that commit, D3.8 closeout).
 		AvailableVariablesList
 		{
 			name: "allVariablesListA"
+			dataSetSelectionOption: "dataSetA"
 		}
 
 		AssignedVariablesList
