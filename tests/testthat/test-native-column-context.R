@@ -14,7 +14,10 @@ localNativeColumnBridge <- function() {
 }
 
 contextColumnNames <- function(context) {
-  vapply(context$columns, function(column) column$name, character(1L))
+  # mds-plan D8.4: the wrapper is the host-filter-prefix-only surface {version, prefix, native};
+  # the captured columns live in the opaque native payload.
+  vapply(jsonlite::fromJSON(context$native, simplifyVector = FALSE)$columns,
+         function(column) column$name, character(1L))
 }
 
 test_that("native decoder contexts can be interleaved without mutating live state", {
@@ -78,8 +81,10 @@ test_that("native decoder contexts can be interleaved without mutating live stat
   }
 
   restoredContext <- jaspSyntax::columnEncoderContext()
-  expect_equal(restoredContext$columns, liveContext$columns)
-  expect_equal(restoredContext$extra, liveContext$extra)
+  # mds-plan D8.4: the wrapper carries {version, prefix, native} only - the capture payload is
+  # compared, not duplicated per-column fields.
+  expect_equal(restoredContext$native, liveContext$native)
+  expect_equal(restoredContext$prefix, liveContext$prefix)
   expect_equal(jaspSyntax::decodeColumnText(liveTokens), liveExpected)
 })
 

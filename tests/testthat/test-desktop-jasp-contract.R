@@ -134,7 +134,9 @@ test_that("native and R bridge exports keep the expected consumer formals", {
   expect_true(is.null(formals(jaspSyntax::columnEncoderContext)) ||
     identical(names(formals(jaspSyntax::columnEncoderContext)), character(0)))
   expect_named(formals(jaspSyntax::decodeColumnText), c("text", "encoderContext"))
-  expect_named(formals(jaspSyntax::decodeAnalysisResults), c("results", "requestedDataset", "columnEncoderContext"))
+  # mds-plan D8.4: decodeAnalysisResults deleted - zero callers outside its own tests, results
+  # decode is C++-side (Engine::sendString / rbridge callbacks, C14/C17).
+  expect_false("decodeAnalysisResults" %in% getNamespaceExports("jaspSyntax"))
   expect_false("columnMapping" %in% getNamespaceExports("jaspSyntax"))
   expect_false("columnDecoderSnapshot" %in% getNamespaceExports("jaspSyntax"))
   expect_named(

@@ -308,9 +308,10 @@ readDatasetHeader <- function(decode = TRUE) {
 #'   options.
 #' @inheritParams readLoadedDataset
 #'
-#' @return A list with `loadedDataset`, `requestedDataset`,
-#'   `resultDecodingDataset`, `runtimeOptions`, `columnEncoderContext`,
-#'   `modulePath`, and `analysisName`.
+#' @return A list with `loadedDataset`, `requestedDataset`, `runtimeOptions`,
+#'   `columnEncoderContext`, `modulePath`, and `analysisName`. (The former
+#'   `resultDecodingDataset` entry was removed with mds-plan D8.4: it only fed
+#'   the deleted `decodeAnalysisResults` - results decode is C++-side.)
 #'
 #' @export
 loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NULL,
@@ -361,11 +362,6 @@ loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NUL
       requestedRaw,
       decode = decode,
       normalize = normalize
-    ),
-    resultDecodingDataset = .prepareBridgeDataset(
-      requestedRaw,
-      decode = decode,
-      normalize = FALSE
     ),
     runtimeOptions = runtimeOptions,
     columnEncoderContext = columnEncoderContext(),

@@ -51,9 +51,11 @@ minted.}
 }
 \value{
 \code{loadAnalysisDataset()} returns a list with \code{loadedDataset},
-\code{requestedDataset}, \code{resultDecodingDataset},
-\code{runtimeOptions}, \code{columnEncoderContext}, \code{modulePath}, and
-\code{analysisName}.
+\code{requestedDataset}, \code{runtimeOptions},
+\code{columnEncoderContext}, \code{modulePath}, and
+\code{analysisName} (the former \code{resultDecodingDataset} entry was
+removed with mds-plan D8.4 together with the deleted
+\code{decodeAnalysisResults}).
 
 \code{readLoadedDataset()} and \code{readRequestedDataset()} return data
 frames. \code{readDatasetHeader()} returns a data frame with \code{name} and
