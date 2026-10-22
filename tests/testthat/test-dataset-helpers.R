@@ -149,7 +149,7 @@ test_that("decodeColumnNames passes names the native table does not know through
   restoreDecoder <- localNativeColumnTextDecoder(stats::setNames(character(), character()))
   on.exit(restoreDecoder(), add = TRUE)
 
-  # The native table is strict: a miss stays raw (mds-plan C4/C16 - e.g. tokens
+  # The native table is strict: a miss stays raw (e.g. tokens
   # of deleted filters). R must not second-guess the decoder with token-grammar
   # checks of its own, so an unknown name comes back unchanged instead of
   # raising.
@@ -235,7 +235,7 @@ test_that("decodeColumnNames delegates the whole vector to the native decoder", 
   )
   on.exit(restoreNative(), add = TRUE)
 
-  # No R-side pre-filtering (mds-plan C14): raw names ride along and come back
+  # No R-side pre-filtering: raw names ride along and come back
   # unchanged because the native table sweep is a no-op for them.
   expect_equal(
     jaspSyntax::decodeColumnNames(
@@ -355,7 +355,7 @@ test_that("factor normalization preserves numeric-looking category labels", {
   expect_identical(dataset$response, c("1", "2", "1"))
 })
 
-test_that("decodeAnalysisResults is gone (mds-plan D8.4): results decode is C++-side", {
+test_that("decodeAnalysisResults is gone: results decode is C++-side", {
   # The D8.4 inventory found zero callers of decodeAnalysisResults outside its own tests
   # (jaspBase/jaspTools/modules: none; the desktop decodes results through the global decode
   # table at Engine::sendString / the rbridge callbacks, C14/C17). The function, its
@@ -533,7 +533,7 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
   expect_equal(state$requestedDataset$score, c("control", "treatment"))
   expect_equal(state$runtimeOptions$variables, "JaspColumn_1_Encoded")
   expect_s3_class(state$columnEncoderContext, "jaspSyntaxColumnEncoderContext")
-  # mds-plan D8.4: the wrapper is the host-filter-prefix-only surface {version, prefix, native}
+  # the wrapper is the host-filter-prefix-only surface {version, prefix, native}
   expect_equal(state$columnEncoderContext$native, encoderContext$native)
   expect_equal(state$columnEncoderContext$prefix, "")
   expect_equal(state$columnEncoderContext$version, 2L)

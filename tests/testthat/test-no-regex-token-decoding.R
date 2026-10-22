@@ -1,4 +1,4 @@
-context("no R-side token grammar (mds-plan C14 / D1.8)")
+context("no R-side token grammar")
 
 # The one global decode table in the native ColumnEncoder is strict: it
 # resolves exactly the tokens the bridge minted and returns everything else

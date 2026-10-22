@@ -11,7 +11,7 @@
 #' and consumed by the native decoder. R never inspects or rebuilds token
 #' namespaces itself (MDS-PLAN C14: no token grammar in R).
 #'
-#' The R-side wrapper is the mds-plan D8.4 host-filter-prefix-only surface:
+#' The R-side wrapper is the host-filter-prefix-only surface:
 #' `{version, prefix, native}` - `prefix` is the host filter's view prefix
 #' (introspection only), `native` is the opaque capture the decoder consumes.
 #'
@@ -69,7 +69,7 @@ decodeColumnText <- function(text, encoderContext = NULL) {
     stop("Native column encoder context must be a single JSON string.", call. = FALSE)
   }
 
-  # mds-plan D8.4 (context inventory/shrink): the wrapper is the HOST-FILTER-PREFIX-ONLY
+  # (context inventory/shrink): the wrapper is the HOST-FILTER-PREFIX-ONLY
   # surface - `{version, prefix, native}`. The per-column `columns`/`extra` payloads the
   # capture also carries were duplicated here (normalized, validated) but read by nothing:
   # `.columnEncoderContextJson` hands the opaque `native` string back to the native decoder

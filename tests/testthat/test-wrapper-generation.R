@@ -1,4 +1,4 @@
-context("generated wrapper: per-slice selection defaults + standalone run (mds-plan D8.3)")
+context("generated wrapper: per-slice selection defaults + standalone run")
 
 localWrapperBridge <- function() {
   tryCatch(
@@ -13,7 +13,7 @@ localWrapperBridge <- function() {
   )
 }
 
-# The zoo module checkout lives next to jaspSyntax (mds-plan repo table); its aware analysis
+# The zoo module checkout lives next to jaspSyntax; its aware analysis
 # `multiDataSetFunc` (two per-list selection options dataSetA/dataSetB) is the D8.3 fixture.
 zooModulePath <- function() {
   path <- testthat::test_path("..", "..", "..", "jaspTestModule")
@@ -60,7 +60,7 @@ test_that("the aware wrapper carries per-slice selection defaults, no datasets[[
   expect_false(grepl("data = NULL,", text, fixed = TRUE))
   expect_match(text, 'options[["datasets"]] <- NULL', fixed = TRUE)
 
-  # mds-plan D8.3: the positional pin is gone ...
+  # the positional pin is gone ...
   expect_false(grepl("data <- if (!is.null(datasets)", text, fixed = TRUE))
   expect_false(grepl("datasets[[1]]", text, fixed = TRUE))   # ... and so is its un-suffixed spelling
 

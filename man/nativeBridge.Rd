@@ -124,7 +124,7 @@ dataset's default filter, or "title - filterName" for one of the named filters
 saved in a live JASP file (a freshly loaded dataset has only its default
 filter, so in full R a selection is the list name). Exact strings only, never
 parsed, never ids; an unknown value fails with a message listing what is
-selectable (mds-plan C4).
+selectable.
 
 \code{loadQmlAndParseOptionsStatus()} is \code{loadQmlAndParseOptions()} plus
 the full bridge status: a list with the parsed \code{options} JSON string and

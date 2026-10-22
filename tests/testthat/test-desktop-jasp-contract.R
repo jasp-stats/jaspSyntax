@@ -99,7 +99,7 @@ test_that("readAnalysisOptionsFromJaspFile replays real Desktop options to runti
   )
   opts <- records$Descriptives$options
 
-  # mds-plan D1.8: tokens are minted by the shown filter's VIEW (C1 shape) -
+  # tokens are minted by the shown filter's VIEW (C1 shape) -
   # legacy lowercase pins retired. (The native encode->decode roundtrip is
   # pinned live in test-module-options.R and test-native-column-context.R;
   # this isolated subprocess replay leaves no table state in this process.)
@@ -134,7 +134,7 @@ test_that("native and R bridge exports keep the expected consumer formals", {
   expect_true(is.null(formals(jaspSyntax::columnEncoderContext)) ||
     identical(names(formals(jaspSyntax::columnEncoderContext)), character(0)))
   expect_named(formals(jaspSyntax::decodeColumnText), c("text", "encoderContext"))
-  # mds-plan D8.4: decodeAnalysisResults deleted - zero callers outside its own tests, results
+  # decodeAnalysisResults deleted - zero callers outside its own tests, results
   # decode is C++-side (Engine::sendString / rbridge callbacks, C14/C17).
   expect_false("decodeAnalysisResults" %in% getNamespaceExports("jaspSyntax"))
   expect_false("columnMapping" %in% getNamespaceExports("jaspSyntax"))

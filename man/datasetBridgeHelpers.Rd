@@ -54,7 +54,7 @@ minted.}
 \code{requestedDataset}, \code{runtimeOptions},
 \code{columnEncoderContext}, \code{modulePath}, and
 \code{analysisName} (the former \code{resultDecodingDataset} entry was
-removed with mds-plan D8.4 together with the deleted
+removed together with the deleted
 \code{decodeAnalysisResults}).
 
 \code{readLoadedDataset()} and \code{readRequestedDataset()} return data

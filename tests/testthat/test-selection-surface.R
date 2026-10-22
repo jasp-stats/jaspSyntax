@@ -1,4 +1,4 @@
-context("dataset selection syntax surface (mds-plan C4)")
+context("dataset selection syntax surface")
 
 # The contract the bridge's raw-option translation implements: selection options carry human
 # strings only - the bare dataset TITLE for a dataset's default filter, "title - filterName"
@@ -105,13 +105,13 @@ test_that("loadDataSet returns its id invisibly (s2) and positively", {
   on.exit(jaspSyntax::clearNativeState(), add = TRUE)
 
   seen <- withVisible(jaspSyntax::loadDataSet(data.frame(x = 1:3)))
-  expect_false(seen$visible)     # mds-plan C4/FULL-R s2: no "[1] <id>" noise
+  expect_false(seen$visible) # no "[1] <id>" noise
   expect_type(seen$value, "integer")
   expect_true(seen$value > 0L)
 })
 
-# ---- mds-plan D8.4: TWO per-list selection options in one form ------------------------------
-# Selection lives on the LISTS (mds-plan C10/D2.2); the host registry (D2.3) is what the bridge
+# ---- TWO per-list selection options in one form ------------------------------
+# Selection lives on the LISTS; the host registry (D2.3) is what the bridge
 # reads, so every selection option of the form - not just a form-level one - must translate
 # before anything binds. Fixture: SelectionTwoListsAnalysis.qml, the self-contained twin of the
 # jaspTestModule zoo form (testMultiDataSet.qml, gated test below).

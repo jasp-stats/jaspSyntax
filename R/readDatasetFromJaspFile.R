@@ -310,7 +310,7 @@ readDatasetHeader <- function(decode = TRUE) {
 #'
 #' @return A list with `loadedDataset`, `requestedDataset`, `runtimeOptions`,
 #'   `columnEncoderContext`, `modulePath`, and `analysisName`. (The former
-#'   `resultDecodingDataset` entry was removed with mds-plan D8.4: it only fed
+#' `resultDecodingDataset` entry was removed: it only fed
 #'   the deleted `decodeAnalysisResults` - results decode is C++-side.)
 #'
 #' @export

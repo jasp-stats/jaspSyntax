@@ -14,7 +14,7 @@ localNativeColumnBridge <- function() {
 }
 
 contextColumnNames <- function(context) {
-  # mds-plan D8.4: the wrapper is the host-filter-prefix-only surface {version, prefix, native};
+  # the wrapper is the host-filter-prefix-only surface {version, prefix, native};
   # the captured columns live in the opaque native payload.
   vapply(jsonlite::fromJSON(context$native, simplifyVector = FALSE)$columns,
          function(column) column$name, character(1L))
@@ -44,7 +44,7 @@ test_that("native decoder contexts can be interleaved without mutating live stat
 
   # Real bridge state per dataset: the context AND the encoded tokens the dataset's columns
   # actually mint (the shown filter's view namespaces them as JASPColumn_D<dsId>_F<filterId>_<n>
-  # _Encoded, mds-plan Phase 1). The ids restart after every clear, so the token strings collide
+  # _Encoded). The ids restart after every clear, so the token strings collide
   # across these three datasets - replaying a context must resolve them in the namespace it was
   # captured in, whichever dataset is live.
   state <- lapply(datasets, function(dataset) {
@@ -81,7 +81,7 @@ test_that("native decoder contexts can be interleaved without mutating live stat
   }
 
   restoredContext <- jaspSyntax::columnEncoderContext()
-  # mds-plan D8.4: the wrapper carries {version, prefix, native} only - the capture payload is
+  # the wrapper carries {version, prefix, native} only - the capture payload is
   # compared, not duplicated per-column fields.
   expect_equal(restoredContext$native, liveContext$native)
   expect_equal(restoredContext$prefix, liveContext$prefix)

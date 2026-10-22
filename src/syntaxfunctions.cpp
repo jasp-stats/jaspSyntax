@@ -178,8 +178,8 @@ bool setParameterNative(String name, SEXP value)
 
 //' Load a data frame into the bridge workspace (legacy single-dataset loader; unnamed, it
 //' becomes the shown dataset).
-//' @return the bridge-assigned database id of the loaded dataset, invisibly (mds-plan
-//'   C4/FULL-R s2: top-level calls must not print "[1] <id>"). The id is informational -
+//' @return the bridge-assigned database id of the loaded dataset, invisibly (
+//'   top-level calls must not print "[1] <id>"). The id is informational -
 //'   dataset selection options in syntax mode take the dataset TITLE, never an id.
 //' @examples
 //' \dontrun{
@@ -192,13 +192,13 @@ int loadDataSet(Rcpp::List data)
 
 	//Returns the REAL database id the bridge assigned. Informational: dataset selection
 	//options take the dataset title ("haha", or "haha - myfilter" for a saved named filter
-	//of a live JASP session), never this id (mds-plan C4 - ids stay internal wire format).
+	//of a live JASP session), never this id (ids stay internal wire format).
 	const int dataSetId = callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
 		return syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
 	});
 
 	//init() failure returns -1 with the message only in JASP's log: say so HERE too, the
-	//way loadDataSets already does (mds-plan C4/FULL-R s1 - no silent -1 handed to the user).
+	//way loadDataSets already does - no silent -1 handed to the user.
 	if (dataSetId < 0)
 		Rcpp::stop("the bridge did not report a dataset id (bridge initialization failed?)");
 
@@ -211,7 +211,7 @@ int loadDataSet(Rcpp::List data)
 //' repeated calls rebuild cleanly.
 //' @return named integer vector with the bridge-assigned database id of every loaded
 //'   dataset (c(Name = id, ...)). The ids are INFORMATIONAL (logging, slicing results):
-//'   dataset selection options take the human string of the syntax surface (mds-plan C4) -
+//' dataset selection options take the human string of the syntax surface -
 //'   the bare dataset title for its default filter, or "title - filterName" for a saved
 //'   named filter of a live JASP session. A freshly loaded dataset has only its default
 //'   filter, so in full R a selection is simply the list name; ids are not selection
@@ -310,8 +310,8 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 //' .readDataSetRequestedNative). Strings all the way through: no R-side json re-serialization.
 //' Dataset selection options are passed as syntax-surface strings - the bare dataset title
 //' for its default filter, "title - filterName" for a saved named filter (freshly loaded
-//' datasets have only the default) - which the bridge resolves to filter ids before binding
-//' (mds-plan C4); ids themselves are not accepted there.
+//' datasets have only the default) - which the bridge resolves to filter ids before binding;
+//' ids themselves are not accepted there.
 // [[Rcpp::export]]
 List loadQmlAndParseOptionsStatus(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
 {

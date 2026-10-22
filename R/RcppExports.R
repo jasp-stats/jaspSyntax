@@ -27,8 +27,8 @@ setParameterNative <- function(name, value) {
 
 #' Load a data frame into the bridge workspace (legacy single-dataset loader; unnamed, it
 #' becomes the shown dataset).
-#' @return the bridge-assigned database id of the loaded dataset, invisibly (mds-plan
-#'   C4/FULL-R s2: top-level calls must not print "[1] <id>"). The id is informational -
+#' @return the bridge-assigned database id of the loaded dataset, invisibly (
+#'   top-level calls must not print "[1] <id>"). The id is informational -
 #'   dataset selection options in syntax mode take the dataset TITLE, never an id.
 #' @examples
 #' \dontrun{
@@ -44,7 +44,7 @@ loadDataSet <- function(data) {
 #' repeated calls rebuild cleanly.
 #' @return named integer vector with the bridge-assigned database id of every loaded
 #'   dataset (c(Name = id, ...)). The ids are INFORMATIONAL (logging, slicing results):
-#'   dataset selection options take the human string of the syntax surface (mds-plan C4) -
+#' dataset selection options take the human string of the syntax surface -
 #'   the bare dataset title for its default filter, or "title - filterName" for a saved
 #'   named filter of a live JASP session. A freshly loaded dataset has only its default
 #'   filter, so in full R a selection is simply the list name; ids are not selection
@@ -69,8 +69,8 @@ loadQmlAndParseOptions <- function(moduleName, analysisName, qmlFile, options, v
 #' .readDataSetRequestedNative). Strings all the way through: no R-side json re-serialization.
 #' Dataset selection options are passed as syntax-surface strings - the bare dataset title
 #' for its default filter, "title - filterName" for a saved named filter (freshly loaded
-#' datasets have only the default) - which the bridge resolves to filter ids before binding
-#' (mds-plan C4); ids themselves are not accepted there.
+#' datasets have only the default) - which the bridge resolves to filter ids before binding;
+#' ids themselves are not accepted there.
 loadQmlAndParseOptionsStatus <- function(moduleName, analysisName, qmlFile, options, version, preloadData) {
     .Call(`_jaspSyntax_loadQmlAndParseOptionsStatus`, moduleName, analysisName, qmlFile, options, version, preloadData)
 }
