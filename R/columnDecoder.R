@@ -2,14 +2,13 @@
 #'
 #' Captures the source state needed by SyntaxInterface to reconstruct the native
 #' `ColumnEncoder`: dataset column names/types, the namespace prefix those
-#' tokens live under (the host filter's view prefix since jasp-desktop
-#' MDS-PLAN Phase 1), and extra QML option encodings. The context can be reused
+#' tokens live under (the host filter's view prefix), and extra QML option encodings. The context can be reused
 #' after the active native dataset changes: replay happens against the process-
 #' global native decode table and never mutates live encoder state.
 #'
 #' A context is opaque: it is captured from the native bridge (this function)
 #' and consumed by the native decoder. R never inspects or rebuilds token
-#' namespaces itself (MDS-PLAN C14: no token grammar in R).
+#' namespaces itself (no token grammar in R).
 #'
 #' The R-side wrapper is the host-filter-prefix-only surface:
 #' `{version, prefix, native}` - `prefix` is the host filter's view prefix
@@ -28,7 +27,7 @@ columnEncoderContext <- function() {
 #' decoder unconditionally: the native lookup table resolves exactly the tokens
 #' the bridge minted and returns everything else unchanged, so plain text is a
 #' no-op round trip. Decoding therefore requires a live bridge; R does not
-#' guess which strings might be tokens (MDS-PLAN C14).
+#' guess which strings might be tokens.
 #'
 #' @param text Character vector to decode.
 #' @param encoderContext Optional context returned by `columnEncoderContext()`.

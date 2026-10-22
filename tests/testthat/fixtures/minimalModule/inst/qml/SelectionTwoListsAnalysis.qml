@@ -6,7 +6,7 @@ import JASP.Controls
 // jaspTestModule zoo form (testMultiDataSet.qml). Each VariablesForm carries its own selecting
 // AvailableVariablesList (dataSetA / dataSetB) with an assigned list that
 // depends on it, so the bridge's raw-option translation must resolve BOTH selection options
-// (the registry is per-list since D2.3) before anything binds, and each section then binds
+// (the registry is per-list) before anything binds, and each section then binds
 // against its own dataset. Ids stay invisible: the syntax surface takes title strings only
 // the bound wire value is the filter id, and the emitted syntax renders the
 // title surface (rsyntax's selectionSurfaceFromBoundValue).

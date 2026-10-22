@@ -356,9 +356,9 @@ test_that("factor normalization preserves numeric-looking category labels", {
 })
 
 test_that("decodeAnalysisResults is gone: results decode is C++-side", {
-  # The D8.4 inventory found zero callers of decodeAnalysisResults outside its own tests
+  # The removal inventory found zero callers of decodeAnalysisResults outside its own tests
   # (jaspBase/jaspTools/modules: none; the desktop decodes results through the global decode
-  # table at Engine::sendString / the rbridge callbacks, C14/C17). The function, its
+  # table at Engine::sendString / the rbridge callbacks). The function, its
   # resultDecoding.R machinery and the loadAnalysisDataset$resultDecodingDataset field that
   # only fed it are deleted.
   expect_false("decodeAnalysisResults" %in% getNamespaceExports("jaspSyntax"))

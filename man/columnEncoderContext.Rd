@@ -28,6 +28,5 @@ tokens live under, and extra QML option encodings.
 The whole input vector goes to the native decoder unconditionally: the native
 lookup table resolves exactly the tokens the bridge minted and returns
 everything else unchanged, so plain text is a no-op round trip and decoding
-requires a live bridge. jaspSyntax never pattern-matches token spellings in R
-(jasp-desktop MDS-PLAN C14).
+requires a live bridge. jaspSyntax never pattern-matches token spellings in R.
 }

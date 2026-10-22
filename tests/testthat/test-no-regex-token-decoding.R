@@ -2,9 +2,9 @@ context("no R-side token grammar")
 
 # The one global decode table in the native ColumnEncoder is strict: it
 # resolves exactly the tokens the bridge minted and returns everything else
-# raw (C4/C16). That makes any R-side pattern-matching of token spellings both
-# redundant and a source of false positives - jasp-desktop MDS-PLAN C14
-# deleted it ("deletion, not reformatting"). These tests pin that the grammar
+# raw. That makes any R-side pattern-matching of token spellings both
+# redundant and a source of false positives - the R-side regex decoder was
+# deleted from jasp-desktop ("deletion, not reformatting"). These tests pin that the grammar
 # stays out of jaspSyntax.
 #
 # Scope note: options.R still parses Description.qml / option JSON with
@@ -55,7 +55,7 @@ test_that("package R sources contain no encoded-name grammar at all", {
 test_that("the installed namespace exposes no regex token detectors", {
   ns <- asNamespace("jaspSyntax")
 
-  # The two grammar helpers deleted in D1.8 (and their D1.2/D1.3 bridge-tweak
+  # The two deleted grammar helpers (and their bridge-tweak
   # alternation) must not come back, reachable or not.
   expect_false(exists(".containsEncodedBridgeColumnTokens", envir = ns, inherits = FALSE))
   expect_false(exists(".isEncodedBridgeColumnName", envir = ns, inherits = FALSE))

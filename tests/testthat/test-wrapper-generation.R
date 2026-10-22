@@ -14,7 +14,7 @@ localWrapperBridge <- function() {
 }
 
 # The zoo module checkout lives next to jaspSyntax; its aware analysis
-# `multiDataSetFunc` (two per-list selection options dataSetA/dataSetB) is the D8.3 fixture.
+# `multiDataSetFunc` (two per-list selection options dataSetA/dataSetB) is the fixture.
 zooModulePath <- function() {
   path <- testthat::test_path("..", "..", "..", "jaspTestModule")
   if (dir.exists(path)) path else ""
@@ -75,7 +75,7 @@ test_that("the aware wrapper carries per-slice selection defaults, no datasets[[
   expect_match(text, "jaspSyntax::loadDataSets", fixed = TRUE)
 })
 
-test_that("the non-aware wrapper template is untouched by D8.3", {
+test_that("the non-aware wrapper template is untouched", {
   localWrapperBridge()
   zoo <- zooModulePath()
   skip_if(zoo == "", "jaspTestModule checkout not available next to jaspSyntax")
@@ -123,7 +123,7 @@ test_that("the generated wrapper runs standalone through the bridge (engine-pari
   # Decode the results payload the way jaspTools does (jaspSyntax::decodeJsonText) and assert
   # the run actually routed BOTH datasets: the zoo's selected-variables table carries both
   # columns, each attributed to its own dataset, the metaDump prints the PROVENANCE_AUDIT
-  # marker (no .filterIds member, no dataSetId/filterId keys in .meta reached R - C8/C11), and
+  # marker (no .filterIds member, no dataSetId/filterId keys in .meta reached R), and
   # no raw encoded column token survives the decode.
   json <- jaspSyntax::decodeJsonText(res$.__enclos_env__$private$getResults())
   results <- jsonlite::fromJSON(json, simplifyVector = TRUE)

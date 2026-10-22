@@ -4,8 +4,8 @@ context("dataset selection syntax surface")
 # strings only - the bare dataset TITLE for a dataset's default filter, "title - filterName"
 # for a saved named filter (freshly loaded datasets have only the default, so in full R such a
 # reference must fail loudly). Exact lookup, never parsing, never ids: a number is only ever a
-# title that happens to read as one (M4). loadDataSet()/loadDataSets() return their ids as
-# INFORMATIONAL values (docstrings say so), invisibly since s2.
+# title that happens to read as one. loadDataSet()/loadDataSets() return their ids as
+# INFORMATIONAL values (docstrings say so), invisibly.
 
 localSelectionBridge <- function() {
   tryCatch(
@@ -94,7 +94,7 @@ test_that("unknown, named-filter and empty selections fail loudly with actionabl
     list(dataSetA = list(types = "unknown", value = "Alpha")), auto_unbox = TRUE))
   expect_true(nzchar(parseSelectionJson(shaped)$multiDataSetJson))
 
-  # ... with a NON-plain inside it is rejected with the direct-title hint (M9)
+  # ... with a NON-plain inside it is rejected with the direct-title hint
   badShape <- as.character(jsonlite::toJSON(
     list(dataSetA = list(types = "unknown", value = list("Alpha", "B"))), auto_unbox = TRUE))
   expect_error(parseSelectionJson(badShape), "pass the dataset title directly")
@@ -111,7 +111,7 @@ test_that("loadDataSet returns its id invisibly (s2) and positively", {
 })
 
 # ---- TWO per-list selection options in one form ------------------------------
-# Selection lives on the LISTS; the host registry (D2.3) is what the bridge
+# Selection lives on the LISTS; the host registry is what the bridge
 # reads, so every selection option of the form - not just a form-level one - must translate
 # before anything binds. Fixture: SelectionTwoListsAnalysis.qml, the self-contained twin of the
 # jaspTestModule zoo form (testMultiDataSet.qml, gated test below).
@@ -129,7 +129,7 @@ metaProvenanceKeys <- function(parsed) {
   sum(lengths(regmatches(metaText, gregexpr("dataSetId|filterId", metaText))))
 }
 
-test_that("two per-list selection options in one form resolve independently (D8.4)", {
+test_that("two per-list selection options in one form resolve independently", {
   localSelectionBridge()
   on.exit(jaspSyntax::clearNativeState(), add = TRUE)
 
@@ -157,19 +157,19 @@ test_that("two per-list selection options in one form resolve independently (D8.
   expect_equal(as.character(msj$dataSetIds[[keyA]]), as.character(ids[["Alpha"]]))
   expect_equal(as.character(msj$dataSetIds[[keyB]]), as.character(ids[["B"]]))
 
-  # the same-name column encodes per dataset (the D6.3 distinct-encodings contract, bridge-side)
+  # the same-name column encodes per dataset (the distinct-encodings contract, bridge-side)
   encA <- as.character(utils::tail(unlist(parsed$dependentA), 1L))
   encB <- as.character(utils::tail(unlist(parsed$dependentB), 1L))
   expect_match(encA, "^JASPColumn_D[0-9]+_F[0-9]+_[0-9]+_Encoded$")
   expect_match(encB, "^JASPColumn_D[0-9]+_F[0-9]+_[0-9]+_Encoded$")
   expect_false(encA == encB)
 
-  # C8/C11: the parse result R receives carries no provenance - no sidecar, no provenance keys
+  # The parse result R receives carries no provenance - no sidecar, no provenance keys
   expect_null(parsed[[".filterIds"]])
   expect_equal(metaProvenanceKeys(parsed), 0L)
 })
 
-test_that("each selection option is validated on its own; the error names the option (D8.4)", {
+test_that("each selection option is validated on its own; the error names the option", {
   localSelectionBridge()
   on.exit(jaspSyntax::clearNativeState(), add = TRUE)
 
@@ -193,7 +193,7 @@ test_that("each selection option is validated on its own; the error names the op
   expect_match(err, "dataSetB")
 })
 
-test_that("the zoo form (two per-list selections, the D8.4 fixture) parses through the bridge", {
+test_that("the zoo form (two per-list selections) parses through the bridge", {
   localSelectionBridge()
   on.exit(jaspSyntax::clearNativeState(), add = TRUE)
 

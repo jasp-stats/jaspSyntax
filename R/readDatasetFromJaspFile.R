@@ -201,8 +201,7 @@
 #' vector goes to the native lookup table, which resolves exactly the tokens the
 #' bridge minted and returns everything else unchanged (raw/non-token names are
 #' a no-op round trip; tokens of dropped namespaces stay raw). Decoding requires
-#' a live bridge - R never pattern-matches token spellings itself
-#' (jasp-desktop MDS-PLAN C14).
+#' a live bridge - R never pattern-matches token spellings itself.
 #'
 #' @param columnNames Character vector of column names.
 #' @param strict Compatibility-only flag retained for callers that pass it.
