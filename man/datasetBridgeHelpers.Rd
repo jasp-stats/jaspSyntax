@@ -45,14 +45,17 @@ decodeColumnNames(columnNames, strict = FALSE)
 \item{columnNames}{Character vector of column names.}
 
 \item{strict}{Compatibility-only flag retained for callers that pass it.
-Encoded bridge names always require native decoding; raw/non-encoded names are
-returned unchanged.}
+Every name is handed to the native decoder; raw/non-token names come back
+unchanged because the native lookup table resolves only the tokens the bridge
+minted.}
 }
 \value{
 \code{loadAnalysisDataset()} returns a list with \code{loadedDataset},
-\code{requestedDataset}, \code{resultDecodingDataset},
-\code{runtimeOptions}, \code{columnEncoderContext}, \code{modulePath}, and
-\code{analysisName}.
+\code{requestedDataset}, \code{runtimeOptions},
+\code{columnEncoderContext}, \code{modulePath}, and
+\code{analysisName} (the former \code{resultDecodingDataset} entry was
+removed together with the deleted
+\code{decodeAnalysisResults}).
 
 \code{readLoadedDataset()} and \code{readRequestedDataset()} return data
 frames. \code{readDatasetHeader()} returns a data frame with \code{name} and

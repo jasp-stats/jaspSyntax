@@ -176,14 +176,103 @@ bool setParameterNative(String name, SEXP value)
 	return false;
 }
 
-// [[Rcpp::export]]
-void loadDataSet(Rcpp::List data)
+//' Load a data frame into the bridge workspace (legacy single-dataset loader; unnamed, it
+//' becomes the shown dataset).
+//' @return the bridge-assigned database id of the loaded dataset, invisibly (
+//'   top-level calls must not print "[1] <id>"). The id is informational -
+//'   dataset selection options in syntax mode take the dataset TITLE, never an id.
+//' @examples
+//' \dontrun{
+//' id <- loadDataSet(iris)          # silent; id kept for logging only
+//' }
+// [[Rcpp::export(invisible = TRUE)]]
+int loadDataSet(Rcpp::List data)
 {
 	const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(data);
 
-	callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
-		syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
+	//Returns the REAL database id the bridge assigned. Informational: dataset selection
+	//options take the dataset title ("haha", or "haha - myfilter" for a saved named filter
+	//of a live JASP session), never this id (ids stay internal wire format).
+	const int dataSetId = callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
+		return syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
 	});
+
+	//init() failure returns -1 with the message only in JASP's log: say so HERE too, the
+	//way loadDataSets already does - no silent -1 handed to the user.
+	if (dataSetId < 0)
+		Rcpp::stop("the bridge did not report a dataset id (bridge initialization failed?)");
+
+	return dataSetId;
+}
+
+//' Load a named list of datasets for a multi-dataset aware analysis (syntax mode).
+//' Each entry becomes its own DataSet in the bridge workspace (real id + column encoder),
+//' titled with the list name; the first entry is the primary. State is cleared first, so
+//' repeated calls rebuild cleanly.
+//' @return named integer vector with the bridge-assigned database id of every loaded
+//'   dataset (c(Name = id, ...)). The ids are INFORMATIONAL (logging, slicing results):
+//' dataset selection options take the human string of the syntax surface -
+//'   the bare dataset title for its default filter, or "title - filterName" for a saved
+//'   named filter of a live JASP session. A freshly loaded dataset has only its default
+//'   filter, so in full R a selection is simply the list name; ids are not selection
+//'   syntax and fail loudly.
+//' @examples
+//' \dontrun{
+//' ids <- loadDataSets(list(Alpha = iris, Beta = mtcars))
+//' # ... then the analysis' selection options take "Alpha" and "Beta", not ids.
+//' }
+// [[Rcpp::export]]
+Rcpp::IntegerVector loadDataSets(Rcpp::List datasets)
+{
+	SEXP namesR = datasets.names();
+
+	if (namesR == R_NilValue)
+		Rcpp::stop("`datasets` must be a named list of data.frames");
+
+	Rcpp::CharacterVector names(namesR);
+
+	if (names.size() != datasets.size())
+		Rcpp::stop("`datasets` must have exactly one name per dataset");
+
+	for (int i = 0; i < datasets.size(); i++)
+	{
+		const std::string name = Rcpp::as<std::string>(names[i]);
+
+		if (name.empty())
+			Rcpp::stop("`datasets` entry %d has no name", i + 1);
+
+		for (int j = 0; j < i; j++)
+			if (Rcpp::as<std::string>(names[j]) == name)
+				Rcpp::stop("`datasets` has the name '%s' more than once; dataset titles must be unique", name.c_str());
+
+		if (!Rf_inherits(Rcpp::RObject(datasets[i]), "data.frame"))
+			Rcpp::stop("`datasets` entry '%s' is not a data.frame", name.c_str());
+	}
+
+	//Fresh start, then accumulate: the named loads keep every dataset in the workspace
+	//(see syntaxBridgeLoadDataSet), the titles are how the QML dataset selections refer to them.
+	clearNativeStateNative();
+
+	Rcpp::IntegerVector dataSetIds(datasets.size());
+
+	for (int i = 0; i < datasets.size(); i++)
+	{
+		const std::string name = Rcpp::as<std::string>(names[i]);
+		const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(
+				Rcpp::as<Rcpp::List>(datasets[i]), name);
+
+		const int dataSetId = callBridgeOrStop("syntaxBridgeLoadDataSet", [&]() {
+			return syntaxBridgeLoadDataSet(&dataset, global_param_dbInMemory, global_param_threshold, global_param_orderLabelsByValue);
+		});
+
+		if (dataSetId < 0)
+			Rcpp::stop("the bridge did not report a dataset id for '%s'", name.c_str());
+
+		dataSetIds[i] = dataSetId;
+	}
+
+	dataSetIds.names() = names;
+	return dataSetIds;
 }
 
 
@@ -212,6 +301,43 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 	static std::string result;
 	result = status["options"].toStyledString();
 	return result.c_str();
+}
+
+//' Parse options through the QML form and return the FULL bridge status in pieces:
+//' list(options = <json string>, multiDataSetJson = <json string or ""> ) -
+//' multiDataSetJson ({ ids, names }) is present for multi-dataset aware analyses and pairs
+//' with the per-dataset slices queued in the bridge (jaspBase::runJaspResults reads them via
+//' .readDataSetRequestedNative). Strings all the way through: no R-side json re-serialization.
+//' Dataset selection options are passed as syntax-surface strings - the bare dataset title
+//' for its default filter, "title - filterName" for a saved named filter (freshly loaded
+//' datasets have only the default) - which the bridge resolves to filter ids before binding;
+//' ids themselves are not accepted there.
+// [[Rcpp::export]]
+List loadQmlAndParseOptionsStatus(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
+{
+	std::string qmlFileStr		= qmlFile.get_cstring(),
+				optionsStr		= options.get_cstring(),
+				versionStr		= version.get_cstring(),
+				analysisNameStr	= analysisName.get_cstring(),
+				moduleNameStr	= moduleName.get_cstring();
+
+	Json::Value status = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeLoadQmlAndParseOptionsStatus", [&]() {
+			return syntaxBridgeLoadQmlAndParseOptionsStatus(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+		}),
+		"syntaxBridgeLoadQmlAndParseOptionsStatus"
+	);
+
+	if (!status["ok"].asBool())
+	{
+		std::string error = status.isMember("error") ? status["error"].asString() : "unknown error";
+		Rcpp::stop("Error when parsing options: %s", error.c_str());
+	}
+
+	List result;
+	result["options"]			= status["options"].toStyledString();
+	result["multiDataSetJson"]	= status.isMember("multiDataSetJson") ? status["multiDataSetJson"].toStyledString() : std::string("");
+	return result;
 }
 
 // [[Rcpp::export]]
@@ -457,3 +583,43 @@ Rcpp::CharacterVector decodeColumnTextNative(Rcpp::CharacterVector values, Strin
 
 
 
+
+//' Decode a Whole JSON Payload Against Every Bridge Encoder
+//'
+//' Runs the engine's send-string equivalent over a JSON payload (an analysis' results
+//' json, say): each DataSet's own column encoder in the bridge workspace, then the
+//' extra-options encoder, then the process-global one. An encoder only replaces the exact
+//' tokens it minted itself, so decoding with all of them is safe for multi-dataset runs
+//' regardless of which dataset was shown last. Text that is not valid JSON is returned
+//' unchanged; empty input is returned as-is.
+// [[Rcpp::export]]
+String decodeJsonText(String json)
+{
+	if (json == NA_STRING)
+		return json;
+
+	const std::string jsonStr = json.get_cstring();
+	if (jsonStr.empty())
+		return json;
+
+	Json::Value decoded = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeDecodeJsonText", [&]() {
+			return syntaxBridgeDecodeJsonText(jsonStr.c_str());
+		}),
+		"syntaxBridgeDecodeJsonText"
+	);
+
+	if (!decoded.isObject() || !decoded.isMember("ok") || !decoded["ok"].isBool())
+		Rcpp::stop("syntaxBridgeDecodeJsonText returned an unexpected payload.");
+
+	if (!decoded["ok"].asBool())
+	{
+		std::string error = decoded.isMember("error") ? decoded["error"].asString() : "unknown error";
+		Rcpp::stop("syntaxBridgeDecodeJsonText failed: %s", error.c_str());
+	}
+
+	if (!decoded.isMember("text") || !decoded["text"].isString())
+		Rcpp::stop("syntaxBridgeDecodeJsonText returned no decoded text.");
+
+	return std::string(decoded["text"].asString());
+}

@@ -28,7 +28,7 @@ class DataFrameImporter
 {
 
 public:
-	static const SyntaxBridgeDataSet& loadDataFrame(const Rcpp::List& dataframe);
+	static const SyntaxBridgeDataSet& loadDataFrame(const Rcpp::List& dataframe, const std::string& name = std::string());
 	static Rcpp::List getVariableNames();
 	static Rcpp::List getVariableValues(Rcpp::String variableName);
 

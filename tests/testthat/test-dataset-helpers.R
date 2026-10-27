@@ -145,14 +145,17 @@ test_that("decodeColumnNames strict flag is compatibility-only", {
   )
 })
 
-test_that("decodeColumnNames fails when native decoding leaves encoded names", {
+test_that("decodeColumnNames passes names the native table does not know through raw", {
   restoreDecoder <- localNativeColumnTextDecoder(stats::setNames(character(), character()))
   on.exit(restoreDecoder(), add = TRUE)
 
-  expect_error(
+  # The native table is strict: a miss stays raw (e.g. tokens
+  # of deleted filters). R must not second-guess the decoder with token-grammar
+  # checks of its own, so an unknown name comes back unchanged instead of
+  # raising.
+  expect_equal(
     jaspSyntax::decodeColumnNames("JaspColumn_1_Encoded"),
-    "left encoded column name",
-    fixed = TRUE
+    "JaspColumn_1_Encoded"
   )
 })
 
@@ -168,7 +171,9 @@ test_that("empty column encoder contexts do not fall through to live native stat
   )
   on.exit(restoreNative(), add = TRUE)
 
-  context <- jaspSyntax:::.newColumnEncoderContext()
+  context <- jaspSyntax:::.columnEncoderContextFromJson(
+    '{"version": 2, "columns": [], "extra": []}'
+  )
 
   expect_equal(
     jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", context),
@@ -187,8 +192,8 @@ test_that("decodeColumnText does not use R mapping replacement when native decod
   )
   on.exit(restoreNative(), add = TRUE)
 
-  context <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(list(name = "score", type = "scale"))
+  context <- jaspSyntax:::.columnEncoderContextFromJson(
+    '{"version": 2, "columns": [{"name": "score", "type": "scale"}], "extra": []}'
   )
   expect_error(
     jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", context),
@@ -216,7 +221,7 @@ test_that("decodeColumnText dispatches extra option tokens to the native decoder
   expect_equal(observed, "JaspExtraOptions_0_Encoded")
 })
 
-test_that("decodeColumnNames does not send raw names to the strict native decoder", {
+test_that("decodeColumnNames delegates the whole vector to the native decoder", {
   observed <- character(0)
   restoreNative <- localNamespaceBinding(
     "decodeColumnText",
@@ -230,6 +235,8 @@ test_that("decodeColumnNames does not send raw names to the strict native decode
   )
   on.exit(restoreNative(), add = TRUE)
 
+  # No R-side pre-filtering: raw names ride along and come back
+  # unchanged because the native table sweep is a no-op for them.
   expect_equal(
     jaspSyntax::decodeColumnNames(
       c("score", "score.scale", "JaspColumn_1_Encoded"),
@@ -237,12 +244,13 @@ test_that("decodeColumnNames does not send raw names to the strict native decode
     ),
     c("score", "score.scale", "score")
   )
-  expect_equal(observed, "JaspColumn_1_Encoded")
+  expect_equal(observed, c("score", "score.scale", "JaspColumn_1_Encoded"))
 
   expect_equal(
     jaspSyntax::decodeColumnNames(c("score", "score.scale"), strict = TRUE),
     c("score", "score.scale")
   )
+  expect_equal(observed, c("score", "score.scale", "JaspColumn_1_Encoded", "score", "score.scale"))
 })
 
 test_that("state readers fail loudly when decode is requested without decoder support", {
@@ -347,133 +355,14 @@ test_that("factor normalization preserves numeric-looking category labels", {
   expect_identical(dataset$response, c("1", "2", "1"))
 })
 
-test_that("decodeAnalysisResults decodes native column names and factor value tokens", {
-  restoreDecoder <- localNativeColumnTextDecoder(
-    c(JaspColumn_1_Encoded = "group")
-  )
-  on.exit(restoreDecoder(), add = TRUE)
-  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(list(name = "group", type = "nominal"))
-  )
-
-  requestedDataset <- data.frame(
-    JaspColumn_1_Encoded = factor(c("control", "treatment")),
-    check.names = FALSE
-  )
-  results <- list(
-    results = list(
-      table = list(
-        data = list(
-          list(
-            JaspColumn_1_Encoded = "1",
-            label = "JaspColumn_1_Encoded"
-          )
-        )
-      )
-    )
-  )
-
-  decoded <- jaspSyntax::decodeAnalysisResults(
-    results,
-    requestedDataset = requestedDataset,
-    columnEncoderContext = encoderContext
-  )
-  firstRow <- decoded$results$table$data[[1L]]
-
-  expect_equal(names(firstRow), c("group", "label"))
-  expect_equal(firstRow$group, "control")
-  expect_equal(firstRow$label, "group")
-})
-
-test_that("decodeAnalysisResults passes captured column encoder context to the native decoder", {
-  observedContext <- NULL
-  restoreDecoder <- localNamespaceBinding(
-    "decodeColumnText",
-    function(text, encoderContext = NULL) {
-      observedContext <<- encoderContext
-      out <- text
-      out <- gsub("JaspColumn_1_Encoded", "group", out, fixed = TRUE)
-      out <- gsub("jaspColumn2", "phase", out, fixed = TRUE)
-      out
-    },
-    asNamespace("jaspSyntax")
-  )
-  on.exit(restoreDecoder(), add = TRUE)
-  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(
-      list(name = "group", type = "nominal"),
-      list(name = "phase", type = "nominal")
-    )
-  )
-
-  requestedDataset <- data.frame(
-    JaspColumn_1_Encoded = factor(c("control", "treatment")),
-    check.names = FALSE
-  )
-  results <- list(
-    results = list(
-      table = list(
-        data = list(
-          list(
-            JaspColumn_1_Encoded = "2",
-            Variable = "JaspColumn_1_Encoded",
-            Interaction = "JaspColumn_1_Encoded:jaspColumn2",
-            Note = "The following variables are used: 'JaspColumn_1_Encoded', 'jaspColumn2'.",
-            Unmatched = "jaspColumn10"
-          )
-        )
-      )
-    )
-  )
-
-  decoded <- jaspSyntax::decodeAnalysisResults(
-    results,
-    requestedDataset = requestedDataset,
-    columnEncoderContext = encoderContext
-  )
-  firstRow <- decoded$results$table$data[[1L]]
-
-  expect_equal(names(firstRow), c("group", "Variable", "Interaction", "Note", "Unmatched"))
-  expect_equal(firstRow$group, "treatment")
-  expect_equal(firstRow$Variable, "group")
-  expect_equal(firstRow$Interaction, "group:phase")
-  expect_equal(firstRow$Note, "The following variables are used: 'group', 'phase'.")
-  expect_equal(firstRow$Unmatched, "jaspColumn10")
-  expect_s3_class(observedContext, "jaspSyntaxColumnEncoderContext")
-})
-
-test_that("decodeAnalysisResults maps factor values with decoded requested datasets", {
-  restoreDecoder <- localNativeColumnTextDecoder(
-    c(JaspColumn_1_Encoded = "group")
-  )
-  on.exit(restoreDecoder(), add = TRUE)
-  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(list(name = "group", type = "nominal"))
-  )
-
-  requestedDataset <- data.frame(
-    group = factor(c("control", "treatment")),
-    check.names = FALSE
-  )
-  results <- list(
-    results = list(
-      table = list(
-        data = list(
-          list(JaspColumn_1_Encoded = "1")
-        )
-      )
-    )
-  )
-
-  decoded <- jaspSyntax::decodeAnalysisResults(
-    results,
-    requestedDataset = requestedDataset,
-    columnEncoderContext = encoderContext
-  )
-  firstRow <- decoded$results$table$data[[1L]]
-
-  expect_equal(names(firstRow), "group")
-  expect_equal(firstRow$group, "control")
+test_that("decodeAnalysisResults is gone: results decode is C++-side", {
+  # The removal inventory found zero callers of decodeAnalysisResults outside its own tests
+  # (jaspBase/jaspTools/modules: none; the desktop decodes results through the global decode
+  # table at Engine::sendString / the rbridge callbacks). The function, its
+  # resultDecoding.R machinery and the loadAnalysisDataset$resultDecodingDataset field that
+  # only fed it are deleted.
+  expect_false("decodeAnalysisResults" %in% getNamespaceExports("jaspSyntax"))
+  expect_false(file.exists(testthat::test_path("..", "..", "R", "resultDecoding.R")))
 })
 
 test_that("readRequestedDataset exposes requested native dataset state", {
@@ -597,10 +486,13 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
       JaspColumn_2_Encoded = "group"
     )
   )
-  encoderContext <- jaspSyntax:::.newColumnEncoderContext(
-    columns = list(
-      list(name = "score", type = "scale"),
-      list(name = "group", type = "nominal")
+  encoderContext <- jaspSyntax:::.columnEncoderContextFromJson(
+    paste(
+      '{"version": 2,',
+      '"prefix": "",',
+      '"columns": [{"name": "score", "type": "scale"},',
+      '{"name": "group", "type": "nominal"}],',
+      '"extra": []}'
     )
   )
   restoreContext <- localNamespaceBinding(
@@ -639,11 +531,12 @@ test_that("loadAnalysisDataset returns loaded and requested state from native he
   expect_equal(names(state$loadedDataset), c("score", "group"))
   expect_equal(names(state$requestedDataset), "score")
   expect_equal(state$requestedDataset$score, c("control", "treatment"))
-  expect_s3_class(state$resultDecodingDataset$score, "factor")
-  expect_equal(levels(state$resultDecodingDataset$score), c("control", "treatment"))
   expect_equal(state$runtimeOptions$variables, "JaspColumn_1_Encoded")
   expect_s3_class(state$columnEncoderContext, "jaspSyntaxColumnEncoderContext")
-  expect_equal(state$columnEncoderContext$columns, encoderContext$columns)
+  # the wrapper is the host-filter-prefix-only surface {version, prefix, native}
+  expect_equal(state$columnEncoderContext$native, encoderContext$native)
+  expect_equal(state$columnEncoderContext$prefix, "")
+  expect_equal(state$columnEncoderContext$version, 2L)
   expect_s3_class(state, "jaspSyntax_analysis_dataset_state")
 })
 

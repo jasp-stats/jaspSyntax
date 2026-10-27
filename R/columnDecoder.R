@@ -1,8 +1,18 @@
 #' Capture a Native Column Encoder Context
 #'
 #' Captures the source state needed by SyntaxInterface to reconstruct the native
-#' `ColumnEncoder`: dataset column names/types and extra QML option encodings.
-#' The context can be reused after the active native dataset changes.
+#' `ColumnEncoder`: dataset column names/types, the namespace prefix those
+#' tokens live under (the host filter's view prefix), and extra QML option encodings. The context can be reused
+#' after the active native dataset changes: replay happens against the process-
+#' global native decode table and never mutates live encoder state.
+#'
+#' A context is opaque: it is captured from the native bridge (this function)
+#' and consumed by the native decoder. R never inspects or rebuilds token
+#' namespaces itself (no token grammar in R).
+#'
+#' The R-side wrapper is the host-filter-prefix-only surface:
+#' `{version, prefix, native}` - `prefix` is the host filter's view prefix
+#' (introspection only), `native` is the opaque capture the decoder consumes.
 #'
 #' @return A serializable column encoder context.
 #'
@@ -10,12 +20,14 @@
 columnEncoderContext <- function() {
   rawContext <- columnEncoderContextNative()
   .columnEncoderContextFromJson(rawContext)
-}
-
-#' Decode Text With a Native Column Encoder Context
+}#' Decode Text With a Native Column Encoder Context
 #'
 #' Decodes embedded JASP column tokens using SyntaxInterface's native
-#' `ColumnEncoder` replacement rules.
+#' `ColumnEncoder` replacement rules. The whole vector goes to the native
+#' decoder unconditionally: the native lookup table resolves exactly the tokens
+#' the bridge minted and returns everything else unchanged, so plain text is a
+#' no-op round trip. Decoding therefore requires a live bridge; R does not
+#' guess which strings might be tokens.
 #'
 #' @param text Character vector to decode.
 #' @param encoderContext Optional context returned by `columnEncoderContext()`.
@@ -28,7 +40,7 @@ decodeColumnText <- function(text, encoderContext = NULL) {
   if (!is.character(text)) {
     stop("`text` must be a character vector", call. = FALSE)
   }
-  if (!.containsEncodedBridgeColumnTokens(text)) {
+  if (length(text) == 0L) {
     return(text)
   }
 
@@ -56,64 +68,36 @@ decodeColumnText <- function(text, encoderContext = NULL) {
     stop("Native column encoder context must be a single JSON string.", call. = FALSE)
   }
 
-  parsed <- jsonlite::fromJSON(rawContext, simplifyVector = FALSE)
-  .newColumnEncoderContext(
-    rawContext = rawContext,
-    columns = .normalizeColumnEncoderContextColumns(parsed[["columns"]]),
-    extra = .normalizeColumnEncoderContextColumns(parsed[["extra"]])
-  )
-}
-
-.newColumnEncoderContext <- function(rawContext = NULL, columns = list(), extra = list()) {
-  columns <- .normalizeColumnEncoderContextColumns(columns)
-  extra <- .normalizeColumnEncoderContextColumns(extra)
-
-  if (is.null(rawContext)) {
-    rawContext <- as.character(jsonlite::toJSON(
-      list(version = 1L, columns = columns, extra = extra),
-      auto_unbox = TRUE,
-      null = "null"
-    ))
-  }
+  # (context inventory/shrink): the wrapper is the HOST-FILTER-PREFIX-ONLY
+  # surface - `{version, prefix, native}`. The per-column `columns`/`extra` payloads the
+  # capture also carries were duplicated here (normalized, validated) but read by nothing:
+  # `.columnEncoderContextJson` hands the opaque `native` string back to the native decoder
+  # (replay against the process-global decode table), and `prefix` is introspection only.
+  # The native side validates its own input at replay time, so R does not re-parse the
+  # payload - and a malformed capture surfaces at decode, never as a silent wrapper.
+  parsed <- tryCatch(jsonlite::fromJSON(rawContext, simplifyVector = FALSE),
+                     error = function(e) stop("Native column encoder context is not valid JSON: ",
+                                              conditionMessage(e), call. = FALSE))
 
   structure(
     list(
-      version = 1L,
-      columns = columns,
-      extra = extra,
-      native = rawContext
+      version = parsed[["version"]],
+      prefix  = .columnEncoderContextPrefix(parsed),
+      native  = rawContext
     ),
     class = "jaspSyntaxColumnEncoderContext"
   )
 }
 
-.normalizeColumnEncoderContextColumns <- function(columns = NULL) {
-  if (is.null(columns) || length(columns) == 0L) {
-    return(list())
+.columnEncoderContextPrefix <- function(parsed) {
+  prefix <- parsed[["prefix"]]
+  if (is.null(prefix)) {
+    return("")
   }
-
-  if (is.data.frame(columns)) {
-    columns <- split(columns, seq_len(nrow(columns)))
+  if (!is.character(prefix) || length(prefix) != 1L || is.na(prefix)) {
+    stop("Native column encoder context `prefix` must be a single string.", call. = FALSE)
   }
-
-  if (!is.list(columns)) {
-    stop("Column encoder context columns must be a list.", call. = FALSE)
-  }
-
-  lapply(columns, function(column) {
-    if (!is.list(column) || is.null(column[["name"]]) || is.null(column[["type"]])) {
-      stop("Column encoder context entries must contain `name` and `type`.", call. = FALSE)
-    }
-
-    name <- column[["name"]]
-    type <- column[["type"]]
-    if (!is.character(name) || length(name) != 1L || is.na(name) || !nzchar(name) ||
-        !is.character(type) || length(type) != 1L || is.na(type) || !nzchar(type)) {
-      stop("Column encoder context `name` and `type` entries must be non-empty strings.", call. = FALSE)
-    }
-
-    list(name = name, type = type)
-  })
+  prefix
 }
 
 .columnEncoderContextJson <- function(encoderContext = NULL) {
@@ -129,30 +113,9 @@ decodeColumnText <- function(text, encoderContext = NULL) {
     return(encoderContext)
   }
 
-  if (is.list(encoderContext) &&
-      (!is.null(encoderContext[["columns"]]) || !is.null(encoderContext[["extra"]]))) {
-    return(.newColumnEncoderContext(
-      columns = encoderContext[["columns"]],
-      extra = encoderContext[["extra"]]
-    )[["native"]])
-  }
-
-  stop("`encoderContext` must be a native column encoder context.", call. = FALSE)
-}
-
-.containsEncodedBridgeColumnTokens <- function(text) {
-  if (!is.character(text) || length(text) == 0L) {
-    return(FALSE)
-  }
-
-  # Case-insensitive, and deliberately permissive. Encoded names are minted with more than one
-  # spelling of the prefix - DataSet::setupEncoderPrefix() uses "JASPColumn_<datasetId>_" while the
-  # process-global encoder defaults to "JaspColumn_" - and this pattern only decides whether it is
-  # worth calling the decoder at all. A false positive costs one wasted call; a false negative means
-  # the text is returned still encoded, which is how "JASPColumn_1_15_Encoded" reached results.
-  any(grepl(
-    "(?i)(Jasp(?:Column|ExtraOptions)_[[:alnum:]_]+_Encoded|jaspColumn[0-9]+)",
-    text,
-    perl = TRUE
-  ), na.rm = TRUE)
+  stop(
+    "`encoderContext` must be a native column encoder context captured with ",
+    "`columnEncoderContext()` (or its JSON string).",
+    call. = FALSE
+  )
 }

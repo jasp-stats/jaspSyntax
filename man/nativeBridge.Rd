@@ -6,8 +6,11 @@
 \alias{generateModuleWrappers}
 \alias{getVariableNames}
 \alias{loadDataSet}
+\alias{loadDataSets}
 \alias{loadDataSetFromJaspFile}
 \alias{loadQmlAndParseOptions}
+\alias{loadQmlAndParseOptionsStatus}
+\alias{decodeJsonText}
 \alias{parseDescription}
 \alias{setParameter}
 \title{Low-Level SyntaxInterface Bridge}
@@ -24,6 +27,8 @@ getVariableNames()
 
 loadDataSet(data)
 
+loadDataSets(datasets)
+
 loadDataSetFromJaspFile(jaspFilePath)
 
 loadQmlAndParseOptions(
@@ -34,6 +39,17 @@ loadQmlAndParseOptions(
   version,
   preloadData
 )
+
+loadQmlAndParseOptionsStatus(
+  moduleName,
+  analysisName,
+  qmlFile,
+  options,
+  version,
+  preloadData
+)
+
+decodeJsonText(json)
 
 parseDescription(modulePath)
 
@@ -47,6 +63,11 @@ setParameter(name, value)
 \item{modulePath}{Path to a JASP module.}
 
 \item{data}{A data frame-like object to load into the native bridge.}
+
+\item{datasets}{A named list of data.frames, one dataset per entry (see
+\code{loadDataSets}).}
+
+\item{json}{A character string holding a JSON payload (see \code{decodeJsonText}).}
 
 \item{moduleName}{Module name passed to SyntaxInterface.}
 
@@ -92,4 +113,28 @@ Use \code{\link{clearQmlForms}}, \code{\link{clearDatasetState}}, or
 \code{\link{clearNativeState}} when the intended lifecycle scope matters.
 Use \code{\link{nativeBridgeProvenance}} to inspect the recorded
 SyntaxInterface header/binary source for ABI diagnostics.
+
+\code{loadDataSet()} returns the bridge-assigned database id of the loaded
+dataset invisibly; \code{loadDataSets()} loads a whole named list of data.frames
+(one DataSet per entry, first entry primary, state cleared first) and returns
+their ids as a named integer vector. These ids are INFORMATIONAL (logging,
+slicing results): the dataset selection options of a multi-dataset aware
+analysis take the syntax surface instead - the bare dataset title for that
+dataset's default filter, or "title - filterName" for one of the named filters
+saved in a live JASP file (a freshly loaded dataset has only its default
+filter, so in full R a selection is the list name). Exact strings only, never
+parsed, never ids; an unknown value fails with a message listing what is
+selectable.
+
+\code{loadQmlAndParseOptionsStatus()} is \code{loadQmlAndParseOptions()} plus
+the full bridge status: a list with the parsed \code{options} JSON string and
+\code{multiDataSetJson} (the \code{\{ids, names, dataSetIds, primary\}} plan of
+the queued per-filter slices, "" for non-aware analyses).
+
+\code{decodeJsonText()} runs the engine's send-string decoder over a whole
+JSON payload: every DataSet's own column encoder in the bridge workspace, then
+the extra-options encoder, then the process-global one (each encoder only
+replaces the exact tokens it minted, so the sweep is safe regardless of which
+dataset was shown last). Non-JSON text is returned unchanged, empty input
+as-is, \code{NA} as \code{NA}.
 }

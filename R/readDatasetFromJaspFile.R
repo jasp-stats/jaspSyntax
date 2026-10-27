@@ -197,14 +197,15 @@
 
 #' Decode Native JASP Column Names
 #'
-#' Decodes column names using the native bridge decoder installed by
-#' SyntaxInterface. Raw/non-encoded names are returned unchanged; encoded bridge
-#' names require a working native decoder.
+#' Decodes column names through the native SyntaxInterface decoder: the whole
+#' vector goes to the native lookup table, which resolves exactly the tokens the
+#' bridge minted and returns everything else unchanged (raw/non-token names are
+#' a no-op round trip; tokens of dropped namespaces stay raw). Decoding requires
+#' a live bridge - R never pattern-matches token spellings itself.
 #'
 #' @param columnNames Character vector of column names.
 #' @param strict Compatibility-only flag retained for callers that pass it.
-#'   Encoded bridge names always require native decoding; raw/non-encoded names
-#'   are returned unchanged.
+#'   Every name is decoded natively; raw/non-token names are returned unchanged.
 #'
 #' @return A character vector with decoded names.
 #'
@@ -215,14 +216,9 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
   }
 
   strict <- .validateFlag(strict, "strict")
-  encoded <- .isEncodedBridgeColumnName(columnNames)
-  if (!any(encoded)) {
-    return(columnNames)
-  }
 
-  decodedNames <- columnNames
-  nativeDecoded <- tryCatch(
-    decodeColumnText(columnNames[encoded]),
+  tryCatch(
+    decodeColumnText(columnNames),
     error = function(e) {
       stop(
         "jaspSyntax bridge could not decode native column names: ",
@@ -231,30 +227,6 @@ decodeColumnNames <- function(columnNames, strict = FALSE) {
       )
     }
   )
-
-  if (!is.character(nativeDecoded) || length(nativeDecoded) != sum(encoded)) {
-    stop(
-      "Native column decoder returned an invalid column-name result.",
-      call. = FALSE
-    )
-  }
-
-  decodedNames[encoded] <- nativeDecoded
-  stillEncoded <- .isEncodedBridgeColumnName(decodedNames[encoded])
-  if (any(stillEncoded)) {
-    failed <- columnNames[encoded][stillEncoded][[1L]]
-    stop(
-      "Native column decoder left encoded column name `", failed, "` unchanged.",
-      call. = FALSE
-    )
-  }
-
-  decodedNames
-}
-
-.isEncodedBridgeColumnName <- function(columnNames) {
-  grepl("^JaspColumn_[[:alnum:]_]+_Encoded$", columnNames) |
-    grepl("^jaspColumn[0-9]+$", columnNames)
 }
 
 #' Read the Loaded Native Dataset
@@ -335,9 +307,10 @@ readDatasetHeader <- function(decode = TRUE) {
 #'   options.
 #' @inheritParams readLoadedDataset
 #'
-#' @return A list with `loadedDataset`, `requestedDataset`,
-#'   `resultDecodingDataset`, `runtimeOptions`, `columnEncoderContext`,
-#'   `modulePath`, and `analysisName`.
+#' @return A list with `loadedDataset`, `requestedDataset`, `runtimeOptions`,
+#'   `columnEncoderContext`, `modulePath`, and `analysisName`. (The former
+#' `resultDecodingDataset` entry was removed: it only fed
+#'   the deleted `decodeAnalysisResults` - results decode is C++-side.)
 #'
 #' @export
 loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NULL,
@@ -388,11 +361,6 @@ loadAnalysisDataset <- function(dataset, modulePath, analysisName, options = NUL
       requestedRaw,
       decode = decode,
       normalize = normalize
-    ),
-    resultDecodingDataset = .prepareBridgeDataset(
-      requestedRaw,
-      decode = decode,
-      normalize = FALSE
     ),
     runtimeOptions = runtimeOptions,
     columnEncoderContext = columnEncoderContext(),

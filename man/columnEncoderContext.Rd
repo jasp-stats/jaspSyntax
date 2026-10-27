@@ -21,6 +21,12 @@ decoded.
 }
 \description{
 Capture and reuse the source state needed by SyntaxInterface's native
-\code{ColumnEncoder}: dataset column names/types and extra QML option
-encodings.
+\code{ColumnEncoder}: dataset column names/types, the namespace prefix those
+tokens live under, and extra QML option encodings.
+}
+\details{
+The whole input vector goes to the native decoder unconditionally: the native
+lookup table resolves exactly the tokens the bridge minted and returns
+everything else unchanged, so plain text is a no-op round trip and decoding
+requires a live bridge. jaspSyntax never pattern-matches token spellings in R.
 }

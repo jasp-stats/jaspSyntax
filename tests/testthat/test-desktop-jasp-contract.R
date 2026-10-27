@@ -99,9 +99,13 @@ test_that("readAnalysisOptionsFromJaspFile replays real Desktop options to runti
   )
   opts <- records$Descriptives$options
 
-  expect_match(unlist(opts$variables, use.names = FALSE)[[1L]], "^JaspColumn_.*_Encoded$")
+  # tokens are minted by the shown filter's VIEW (the standard shape) -
+  # legacy lowercase pins retired. (The native encode->decode roundtrip is
+  # pinned live in test-module-options.R and test-native-column-context.R;
+  # this isolated subprocess replay leaves no table state in this process.)
+  expect_match(unlist(opts$variables, use.names = FALSE)[[1L]], "^JASPColumn_D[0-9]+_F[0-9]+_[0-9]+_Encoded$")
   expect_equal(optionValues(opts$`variables.types`), "scale")
-  expect_match(unlist(opts$splitBy, use.names = FALSE)[[1L]], "^JaspColumn_.*_Encoded$")
+  expect_match(unlist(opts$splitBy, use.names = FALSE)[[1L]], "^JASPColumn_D[0-9]+_F[0-9]+_[0-9]+_Encoded$")
   expect_equal(optionValues(opts$`splitBy.types`), "nominal")
   expect_true(opts$boxPlot)
   expect_false(".meta" %in% names(opts))
@@ -130,7 +134,9 @@ test_that("native and R bridge exports keep the expected consumer formals", {
   expect_true(is.null(formals(jaspSyntax::columnEncoderContext)) ||
     identical(names(formals(jaspSyntax::columnEncoderContext)), character(0)))
   expect_named(formals(jaspSyntax::decodeColumnText), c("text", "encoderContext"))
-  expect_named(formals(jaspSyntax::decodeAnalysisResults), c("results", "requestedDataset", "columnEncoderContext"))
+  # decodeAnalysisResults deleted - zero callers outside its own tests, results
+  # decode is C++-side (Engine::sendString / rbridge callbacks).
+  expect_false("decodeAnalysisResults" %in% getNamespaceExports("jaspSyntax"))
   expect_false("columnMapping" %in% getNamespaceExports("jaspSyntax"))
   expect_false("columnDecoderSnapshot" %in% getNamespaceExports("jaspSyntax"))
   expect_named(
