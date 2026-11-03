@@ -25,7 +25,7 @@ on:
         # Keep these in sync with the matrix in the setup job below.
         options:
           - all
-          - ubuntu-latest
+          - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15-intel
           - macos-15
@@ -62,9 +62,11 @@ jobs:
     steps:
       - id: set-matrix
         # when updating windows-2022 to windows-latest (2026 as of writing) make sure to update VCVARSALL above
+        # The Linux runners are pinned to 24.04, not ubuntu-latest (now 26.04): the library links the distro's
+        # libmysqlclient, libicu, ... and jasp-actions/update-wrappers installs the 24.04 versions of those.
         run: |
           ALL='{"include":[
-            {"os":"ubuntu-latest",    "arch":"x86_64","artifact":"libSyntaxInterface-linux-x86_64.so",     "lib_file":"libSyntaxInterface.so"},
+            {"os":"ubuntu-24.04",     "arch":"x86_64","artifact":"libSyntaxInterface-linux-x86_64.so",     "lib_file":"libSyntaxInterface.so"},
             {"os":"ubuntu-24.04-arm", "arch":"arm64", "artifact":"libSyntaxInterface-linux-arm64.so",      "lib_file":"libSyntaxInterface.so"},
             {"os":"macos-15-intel",   "arch":"x86_64","artifact":"libSyntaxInterface-darwin-x86_64.dylib", "lib_file":"libSyntaxInterface.dylib"},
             {"os":"macos-15",         "arch":"arm64", "artifact":"libSyntaxInterface-darwin-arm64.dylib",  "lib_file":"libSyntaxInterface.dylib"},
