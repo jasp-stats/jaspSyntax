@@ -877,3 +877,16 @@ test_that("readDatasetFromJaspFile dispatches through the shared bridge subproce
   expect_true(runnerCall$input$normalize)
   expect_equal(runnerCall$failureLabel, "readDatasetFromJaspFile")
 })
+
+test_that("loadDataSet keeps numeric columns at full double precision", {
+  jaspSyntax::cleanUp()
+  on.exit(jaspSyntax::cleanUp(), add = TRUE)
+
+  # the data frame importer used to write numbers with the stream's default 6 significant digits,
+  # so an analysis computed on e.g. 0.333333 instead of 1/3
+  x <- c(1/3, 0.1234567891234567, 123456.789012345, -2/7, 1e-12 / 3, 5, 0.1)
+  jaspSyntax::loadDataSet(data.frame(x = x))
+
+  loaded <- jaspSyntax::readLoadedDataset()
+  expect_identical(as.numeric(loaded[["x"]]), x)
+})

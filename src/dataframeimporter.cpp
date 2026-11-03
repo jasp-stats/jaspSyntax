@@ -17,6 +17,9 @@
 //
 
 #include "dataframeimporter.h"
+#include <iomanip>
+#include <limits>
+#include <sstream>
 
 SyntaxBridgeDataSet DataFrameImporter::datasetStatic;
 
@@ -25,8 +28,10 @@ std::string doubleToString(double dbl)
 	if (dbl > std::numeric_limits<double>::max())		return "∞";
 	if (dbl < std::numeric_limits<double>::lowest())	return "-∞";
 
-	std::stringstream conv; //Use this instead of std::to_string to make sure there are no trailing zeroes (and to get full precision)
-	conv << dbl;
+	// Use this instead of std::to_string to make sure there are no trailing zeroes. The stream's default precision is
+	// only 6 significant digits; max_digits10 is the smallest precision with which every double is read back exactly.
+	std::stringstream conv;
+	conv << std::setprecision(std::numeric_limits<double>::max_digits10) << dbl;
 	return conv.str();
 }
 
