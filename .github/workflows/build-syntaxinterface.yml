@@ -46,6 +46,14 @@ env:
   QT_VERSION: '6.10.2'
   QT_SUBMODULES: 'qtbase,qtdeclarative,qtshadertools'
   QT_SUBMODULES_CACHE_KEY: 'qtbase-qtdeclarative-qtshadertools'
+  # Qt's configure enables every SQL driver and ICU it finds on the runner, and the static library then links those
+  # client libraries dynamically (libmysqlclient.so.21, libpq.so.5, libicu*.so.74 on ubuntu-24.04, LIBPQ.dll on
+  # Windows), which a user's machine may not have. SyntaxInterface only needs the SQLite driver (QtQuick.LocalStorage)
+  # and, like the macOS build where none of these are found, no ICU. On Windows the ICU Qt finds is the system one.
+  QT_CONFIGURE_EXCLUDE: '-no-sql-mysql -no-sql-psql -no-sql-odbc'
+  QT_CONFIGURE_EXCLUDE_UNIX: '-no-icu'
+  # Change this whenever the Qt configure options change, so a cached Qt built with the old options is not reused.
+  QT_CONFIGURE_CACHE_KEY: 'no-sql-clients-no-icu'
   # Only exists on the windows-2022 image. Without it the Windows steps have no MSVC environment and CMake silently
   # falls back to whatever GCC is on PATH (Rtools), which builds Qt and jasp-desktop with the wrong compiler.
   VCVARSALL: 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat'
@@ -62,8 +70,8 @@ jobs:
     steps:
       - id: set-matrix
         # when updating windows-2022 to windows-latest (2026 as of writing) make sure to update VCVARSALL above
-        # The Linux runners are pinned to 24.04, not ubuntu-latest (now 26.04): the library links the distro's
-        # libmysqlclient, libicu, ... and jasp-actions/update-wrappers installs the 24.04 versions of those.
+        # The Linux runners are pinned to 24.04, not ubuntu-latest (now 26.04): building against the older glibc
+        # keeps the library loadable on both. jasp-actions/update-wrappers installs the 24.04 runtime libraries.
         run: |
           ALL='{"include":[
             {"os":"ubuntu-24.04",     "arch":"x86_64","artifact":"libSyntaxInterface-linux-x86_64.so",     "lib_file":"libSyntaxInterface.so"},
@@ -191,7 +199,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES_CACHE_KEY }}
+          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES_CACHE_KEY }}-${{ env.QT_CONFIGURE_CACHE_KEY }}
 
       - name: Install aqtinstall
         if: steps.cache-qt.outputs.cache-hit != 'true'
@@ -211,6 +219,7 @@ jobs:
           ./configure -release -static -opensource -confirm-license \
             -prefix ${{ github.workspace }}/qt-static \
             -submodules ${{ env.QT_SUBMODULES }} \
+            ${{ env.QT_CONFIGURE_EXCLUDE }} ${{ env.QT_CONFIGURE_EXCLUDE_UNIX }} \
             -- -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
           cmake --install .
@@ -225,7 +234,8 @@ jobs:
           cd qt-src\${{ env.QT_VERSION }}\Src
           call configure.bat -release -static -opensource -confirm-license ^
             -prefix ${{ github.workspace }}\qt-static ^
-            -submodules ${{ env.QT_SUBMODULES }}
+            -submodules ${{ env.QT_SUBMODULES }} ^
+            ${{ env.QT_CONFIGURE_EXCLUDE }}
           cmake --build . --parallel
           cmake --install .
 
@@ -234,7 +244,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: ${{ github.workspace }}/qt-static
-          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES_CACHE_KEY }}
+          key: qt-static-${{ matrix.os }}-${{ matrix.arch }}-${{ env.QT_VERSION }}-${{ env.QT_SUBMODULES_CACHE_KEY }}-${{ env.QT_CONFIGURE_CACHE_KEY }}
 
       # ---- Clone and build jasp-desktop / SyntaxInterface ----
 
@@ -353,6 +363,23 @@ jobs:
           cp build/${{ matrix.lib_file }} ${{ matrix.artifact }}
           if [ -f build/R-Interface/libR-InterfaceNoRInside.dll ]; then
             cp build/R-Interface/libR-InterfaceNoRInside.dll libR-InterfaceNoRInside-windows-x86_64.dll
+          fi
+
+      - name: Check the library links no database client or ICU libraries
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            Linux)   deps=$(readelf -d "${{ matrix.artifact }}" | sed -n 's/.*Shared library: \[\(.*\)\]/\1/p') ;;
+            macOS)   deps=$(otool -L "${{ matrix.artifact }}" | tail -n +2 | awk '{print $1}') ;;
+            Windows) deps=$(objdump -p "${{ matrix.artifact }}" | sed -n 's/^[[:space:]]*DLL Name:[[:space:]]*//p') ;;
+          esac
+          echo "${deps}"
+          # On Windows icuuc.dll is the system ICU, so only the database clients are checked there.
+          pattern='mysqlclient|libpq|odbc|mariadb'
+          [ "${{ runner.os }}" != "Windows" ] && pattern="${pattern}|icu"
+          if unwanted=$(echo "${deps}" | grep -iE "${pattern}" | grep -viE '^odbc32\.dll$'); then
+            echo "::error::${{ matrix.artifact }} links libraries a user may not have: $(echo ${unwanted})"
+            exit 1
           fi
 
       - name: Collect SyntaxInterface source bundle

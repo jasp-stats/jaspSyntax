@@ -779,6 +779,19 @@ addRuntimeSearchDir "${JASP_BUILD_DIR}"
 discoverLocalRtoolsRuntimeDirs
 discoverWindowsSystemRuntimeDirs
 
+# Only a MinGW build of SyntaxInterface needs the gcc runtime DLLs; the released MSVC build imports none
+# of them and Rtools does not ship them. Without objdump the imports are unknown, so require all of them.
+if findObjdumpTool >/dev/null; then
+	IMPORTED_DLLS=$({ importedDllsForFile "${SYNTAXINTERFACE_BINARY_PATH}" || true; importedDllsForFile "src/${RINTERFACE_DLL}" || true; } | tr '[:upper:]' '[:lower:]')
+	REQUIRED_RUNTIME_DLLS=""
+	for RUNTIME_DLL in ${RUNTIME_DLLS}; do
+		if printf '%s\n' "${IMPORTED_DLLS}" | grep -qxF "${RUNTIME_DLL}"; then
+			REQUIRED_RUNTIME_DLLS="${REQUIRED_RUNTIME_DLLS} ${RUNTIME_DLL}"
+		fi
+	done
+	RUNTIME_DLLS="${REQUIRED_RUNTIME_DLLS}"
+fi
+
 for RUNTIME_DLL in ${RUNTIME_DLLS}; do
 	# Collect runtime dirs as positional arguments
 	set --
