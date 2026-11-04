@@ -16,7 +16,8 @@ readModuleDescription(modulePath, byName = TRUE)
 A list with module metadata and an \code{analyses} list.
 }
 \description{
-Reads a module's \code{Description.qml} metadata. Source checkouts are resolved
-directly from \code{Description.qml}/\code{DESCRIPTION}; installed or binary modules
-fall back to the native SyntaxInterface bridge.
+Reads a module's \code{Description.qml} metadata through the native
+SyntaxInterface bridge, which loads it with JASP Desktop's own module code.
+Defaults and derived values (an analysis' \code{preloadData}, the module's
+\code{requiresData}, the version string) are therefore exactly what Desktop uses.
 }
