@@ -155,8 +155,12 @@
 
   descriptionText <- paste(readLines(descriptionFile, warn = FALSE), collapse = "\n")
   packageInfo <- .readSourceModuleDescriptionFile(modulePath)
-  modulePreloadData <- .qmlLogicalProperty(descriptionText, "preloadData", TRUE)
-  moduleHasWrappers <- .qmlLogicalProperty(descriptionText, "hasWrappers", FALSE)
+  # Module-level properties must come from the Description object itself, not
+  # from a child entry: an `Analysis { preloadData: false }` listed before any
+  # module-level value would otherwise become the default of every analysis.
+  moduleText <- .qmlOwnPropertiesText(descriptionText)
+  modulePreloadData <- .qmlLogicalProperty(moduleText, "preloadData", TRUE)
+  moduleHasWrappers <- .qmlLogicalProperty(moduleText, "hasWrappers", FALSE)
   analyses <- .qmlAnalysisEntries(descriptionText, modulePreloadData, moduleHasWrappers)
 
   if (length(analyses) == 0L) {
@@ -165,13 +169,13 @@
 
   description <- list(
     name = .defaultString(packageInfo[["Package"]], basename(modulePath)),
-    title = .qmlStringProperty(descriptionText, "title", .defaultString(packageInfo[["Title"]], "")),
+    title = .qmlStringProperty(moduleText, "title", .defaultString(packageInfo[["Title"]], "")),
     author = .defaultString(packageInfo[["Author"]], ""),
     website = .defaultString(packageInfo[["Website"]], ""),
     license = .defaultString(packageInfo[["License"]], ""),
     maintainer = .defaultString(packageInfo[["Maintainer"]], ""),
-    description = .qmlStringProperty(descriptionText, "description", .defaultString(packageInfo[["Description"]], "")),
-    requiresData = .qmlLogicalProperty(descriptionText, "requiresData", TRUE),
+    description = .qmlStringProperty(moduleText, "description", .defaultString(packageInfo[["Description"]], "")),
+    requiresData = .qmlLogicalProperty(moduleText, "requiresData", TRUE),
     hasWrappers = moduleHasWrappers,
     isCommon = FALSE,
     version = .defaultString(packageInfo[["Version"]], ""),
@@ -210,6 +214,7 @@
 .qmlAnalysisEntries <- function(descriptionText, modulePreloadData, moduleHasWrappers) {
   blocks <- .qmlBlocks(descriptionText, "Analysis")
   lapply(blocks, function(block) {
+    block <- .qmlOwnPropertiesText(block)
     name <- .qmlStringProperty(block, "func")
     if (is.null(name)) {
       stop("Analysis entry is missing a `func` property", call. = FALSE)
@@ -223,6 +228,21 @@
       hasWrapper = .qmlLogicalProperty(block, "hasWrapper", moduleHasWrappers)
     )
   })
+}
+
+# The text of the outermost QML object's own properties: everything nested
+# deeper than its body (child objects, braces included) is blanked out, keeping
+# newlines and character positions, so a child's property is never read as the
+# parent's. Braces in strings and comments are ignored.
+.qmlOwnPropertiesText <- function(text) {
+  chars <- strsplit(text, "", fixed = TRUE)[[1L]]
+  masked <- strsplit(.qmlMaskNonCode(text), "", fixed = TRUE)[[1L]]
+  opens <- masked == "{"
+  closes <- masked == "}"
+  depth <- cumsum(opens) - cumsum(closes) + closes
+  nested <- depth > 1L & chars != "\n"
+  chars[nested] <- " "
+  paste(chars, collapse = "")
 }
 
 .qmlBlocks <- function(text, blockName) {

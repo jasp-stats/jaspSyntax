@@ -60,6 +60,55 @@ test_that("readModuleDescription handles one-line analysis entries", {
   expect_false(desc$analyses$CustomAnalysis$hasWrapper)
 })
 
+test_that("readModuleDescription does not read an analysis' properties as module defaults", {
+  modulePath <- tempfile("jaspSyntaxNestedModule_")
+  dir.create(file.path(modulePath, "inst"), recursive = TRUE)
+  on.exit(unlink(modulePath, recursive = TRUE), add = TRUE)
+  writeLines(
+    c(
+      "Package: jaspSyntaxNestedModule",
+      "Title: Package Title",
+      "Version: 0.1.0",
+      "Description: Package description."
+    ),
+    file.path(modulePath, "DESCRIPTION")
+  )
+  # Like jaspDescriptives: no module-level preloadData, one analysis opts out.
+  writeLines(
+    c(
+      "import QtQuick",
+      "import JASP.Module",
+      "",
+      "Description",
+      "{",
+      "  Analysis",
+      "  {",
+      "    title: qsTr(\"Opt out\")",
+      "    func: \"OptOut\"",
+      "    description: qsTr(\"Analysis description\")",
+      "    preloadData: false",
+      "    requiresData: false",
+      "    hasWrapper: true",
+      "  }",
+      "  title: qsTr(\"Module Title { not a brace }\")",
+      "  Analysis { title: qsTr(\"Default\"); func: \"Default\" }",
+      "}"
+    ),
+    file.path(modulePath, "inst", "Description.qml")
+  )
+
+  desc <- jaspSyntax::readModuleDescription(modulePath)
+
+  expect_equal(desc$title, "Module Title { not a brace }")
+  expect_equal(desc$description, "Package description.")
+  expect_true(desc$requiresData)
+  expect_false(desc$hasWrappers)
+  expect_false(desc$analyses$OptOut$preloadData)
+  expect_true(desc$analyses$OptOut$hasWrapper)
+  expect_true(desc$analyses$Default$preloadData)
+  expect_false(desc$analyses$Default$hasWrapper)
+})
+
 test_that("parseModuleDescription accepts Description.qml paths", {
   descPath <- testthat::test_path("fixtures", "minimalModule", "inst", "Description.qml")
   desc <- jaspSyntax::parseModuleDescription(descPath)
