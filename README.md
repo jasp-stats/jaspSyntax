@@ -15,7 +15,8 @@ full archive/module upgrade workflow for old files.
 
 Prefer the high-level helpers such as `readModuleDescription()`,
 `readAnalysisOptionsFromQml()`, `readDefaultAnalysisOptions()`,
-`readAnalysisOptionsFromJaspFile()`, and `readDatasetFromJaspFile()` over the
+`readAnalysisOptionsFromJaspFile()`, `readAnalysisResultsFromJaspFile()`, and
+`readDatasetFromJaspFile()` over the
 raw native bridge calls.
 
 The lower-level helpers (`parseQmlOptions()`, lifecycle controls, dataset-state

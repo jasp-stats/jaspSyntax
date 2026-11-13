@@ -21,8 +21,8 @@ metadata, \code{readAnalysisOptionsFromQml()} or
 \code{readDefaultAnalysisOptions()} for QML/runtime options, and
 \code{loadAnalysisDataset()}, \code{readLoadedDataset()}, and
 \code{readRequestedDataset()} for native dataset state. Use
-\code{readAnalysisOptionsFromJaspFile()} plus \code{readDatasetFromJaspFile()}
-for saved \code{.jasp} files. The low-level native bridge calls remain exported
+\code{readAnalysisOptionsFromJaspFile()}, \code{readAnalysisResultsFromJaspFile()}
+and \code{readDatasetFromJaspFile()} for saved \code{.jasp} files. The low-level native bridge calls remain exported
 for compatibility, but package code should prefer the higher-level helpers.
 Helpers such as \code{parseQmlOptions()}, lifecycle controls, dataset-state
 readers, column mapping, and \code{nativeBridgeProvenance()} are
@@ -37,6 +37,7 @@ Maintainer: JASP Team <info@jasp-stats.org>
 \seealso{
 \code{\link{readAnalysisOptionsFromJaspFile}},
 \code{\link{readAnalysisOptionsFromQml}},
+\code{\link{readAnalysisResultsFromJaspFile}},
 \code{\link{loadAnalysisDataset}},
 \code{\link{nativeBridgeProvenance}},
 \code{\link{readDatasetFromJaspFile}},

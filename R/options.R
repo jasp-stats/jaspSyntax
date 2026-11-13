@@ -493,23 +493,29 @@ readDefaultAnalysisOptions <- function(modulePath, analysisName, fresh = TRUE,
   )
 }
 
-.readJaspAnalysisMetadata <- function(jaspFilePath) {
-  jaspFilePath <- .validateJaspFilePath(jaspFilePath)
-
-  tempDir <- tempfile("jaspSyntax_analyses_")
+.readJaspArchiveJson <- function(jaspFilePath, entry, mustExist = TRUE) {
+  tempDir <- tempfile("jaspSyntax_archive_")
   dir.create(tempDir)
   on.exit(unlink(tempDir, recursive = TRUE), add = TRUE)
 
-  utils::unzip(jaspFilePath, files = "analyses.json", exdir = tempDir)
-  analysesPath <- file.path(tempDir, "analyses.json")
-  if (!file.exists(analysesPath)) {
-    stop("Could not find `analyses.json` inside the JASP file", call. = FALSE)
+  suppressWarnings(utils::unzip(jaspFilePath, files = entry, exdir = tempDir))
+  entryPath <- file.path(tempDir, entry)
+  if (!file.exists(entryPath)) {
+    if (mustExist) {
+      stop("Could not find `", entry, "` inside the JASP file", call. = FALSE)
+    }
+    return(NULL)
   }
 
-  contents <- .fromJsonObject(
-    paste(readLines(analysesPath, warn = FALSE), collapse = "\n"),
-    "`analyses.json`"
+  .fromJsonObject(
+    paste(readLines(entryPath, warn = FALSE, encoding = "UTF-8"), collapse = "\n"),
+    paste0("`", entry, "`")
   )
+}
+
+.readJaspAnalysisMetadata <- function(jaspFilePath) {
+  jaspFilePath <- .validateJaspFilePath(jaspFilePath)
+  contents <- .readJaspArchiveJson(jaspFilePath, "analyses.json")
 
   analyses <- contents[["analyses"]]
   if (!is.list(analyses) || length(analyses) == 0L) {
@@ -519,7 +525,7 @@ readDefaultAnalysisOptions <- function(modulePath, analysisName, fresh = TRUE,
   analyses
 }
 
-.analysisRecordFromJaspFile <- function(metadata, options) {
+.analysisIdentityFromJaspFile <- function(metadata) {
   dynamicModule <- metadata[["dynamicModule"]]
   if (!is.list(dynamicModule)) {
     dynamicModule <- list()
@@ -541,13 +547,17 @@ readDefaultAnalysisOptions <- function(modulePath, analysisName, fresh = TRUE,
     moduleVersion <- .analysisValue(metadata, "version")
   }
 
-  analysis <- list(
+  list(
     name = .analysisValue(metadata, "name"),
     title = .analysisValue(metadata, "title"),
     moduleName = moduleName,
-    moduleVersion = moduleVersion,
-    options = options
+    moduleVersion = moduleVersion
   )
+}
+
+.analysisRecordFromJaspFile <- function(metadata, options) {
+  analysis <- .analysisIdentityFromJaspFile(metadata)
+  analysis$options <- options
 
   attr(analysis$options, "analysisName") <- analysis$name
   attr(analysis$options, "analysisTitle") <- analysis$title
