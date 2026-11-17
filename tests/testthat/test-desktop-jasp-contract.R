@@ -98,23 +98,6 @@ test_that("readAnalysisOptionsFromJaspFile returns saved bound Desktop options",
   expect_false("variables.types" %in% names(records$Descriptives$options))
 })
 
-test_that("readAnalysisOptionsFromJaspFile flattens real Desktop options into value and types", {
-  jaspFile <- desktopJaspFixture()
-  testthat::skip_if_not(file.exists(jaspFile), "Desktop .jasp fixture missing")
-
-  records <- jaspSyntax::readAnalysisOptionsFromJaspFile(jaspFile, flattenTypes = TRUE)
-  opts <- records$Descriptives$options
-
-  # plain column names, as saved: no encoding and no type suffix
-  expect_equal(opts$variables, list("extra"))
-  expect_equal(opts$`variables.types`, list("scale"))
-  expect_equal(opts$splitBy, "group")
-  expect_equal(opts$`splitBy.types`, list("nominal"))
-  expect_true(opts$boxPlot)
-  expect_true(".meta" %in% names(opts))
-  expect_equal(attr(opts, "analysisName"), "Descriptives")
-})
-
 test_that("readAnalysisOptionsFromJaspFile replays real Desktop options to runtime shape", {
   jaspFile <- desktopJaspFixture()
   testthat::skip_if_not(file.exists(jaspFile), "Desktop .jasp fixture missing")
@@ -175,10 +158,9 @@ test_that("native and R bridge exports keep the expected consumer formals", {
   expect_false("columnDecoderSnapshot" %in% getNamespaceExports("jaspSyntax"))
   expect_named(
     formals(jaspSyntax::readAnalysisOptionsFromJaspFile),
-    c("jaspFilePath", "modulePath", "runtime", "includeMeta", "includeTypeOptions", "flattenTypes", "isolated")
+    c("jaspFilePath", "modulePath", "runtime", "includeMeta", "includeTypeOptions", "isolated")
   )
   expect_false(formals(jaspSyntax::readAnalysisOptionsFromJaspFile)$runtime)
-  expect_false(formals(jaspSyntax::readAnalysisOptionsFromJaspFile)$flattenTypes)
   expect_true(formals(jaspSyntax::readAnalysisOptionsFromJaspFile)$includeMeta)
   expect_true(formals(jaspSyntax::readAnalysisOptionsFromJaspFile)$includeTypeOptions)
   expect_true(formals(jaspSyntax::readAnalysisOptionsFromJaspFile)$isolated)

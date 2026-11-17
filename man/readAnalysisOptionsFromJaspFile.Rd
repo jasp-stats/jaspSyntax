@@ -8,7 +8,6 @@ readAnalysisOptionsFromJaspFile(
   runtime = FALSE,
   includeMeta = TRUE,
   includeTypeOptions = TRUE,
-  flattenTypes = FALSE,
   isolated = TRUE
 )
 }
@@ -22,8 +21,6 @@ readAnalysisOptionsFromJaspFile(
 \item{includeMeta}{Whether to retain the \code{.meta} option.}
 
 \item{includeTypeOptions}{Whether to retain \code{*.types} options when present.}
-
-\item{flattenTypes}{Whether to split the saved \code{{value, types}} shape of variables options into \code{<name>} (the value) and \code{<name>.types} (the types), as JASP Desktop does before it calls an analysis that does not preload its data: this runs Desktop's own walk (\code{ColumnEncoder::flattenTypesInOptions}). Column names stay plain (not encoded, no type suffix). An option with an \code{optionKey} and other members besides \code{optionKey}/\code{types}/\code{value} keeps its saved shape, a nested option gets its \code{.types} next to it. Only for \code{runtime = FALSE}.}
 
 \item{isolated}{Whether to run the native \code{.jasp} option extraction in a separate R process. This is the default because the SyntaxInterface bridge owns process-global native state. In-process reads also clear native state before returning; use \code{readDatasetFromJaspFile()} for the saved dataset.}
 }

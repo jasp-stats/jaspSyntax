@@ -62,6 +62,10 @@ loadQmlAndParseOptions <- function(moduleName, analysisName, qmlFile, options, v
     .Call(`_jaspSyntax_loadQmlAndParseOptions`, moduleName, analysisName, qmlFile, options, version, preloadData)
 }
 
+loadQmlAndParseFormOptions <- function(moduleName, analysisName, qmlFile, options, version, preloadData) {
+    .Call(`_jaspSyntax_loadQmlAndParseFormOptions`, moduleName, analysisName, qmlFile, options, version, preloadData)
+}
+
 #' Parse options through the QML form and return the FULL bridge status in pieces:
 #' list(options = <json string>, multiDataSetJson = <json string or "">, upgradeMsgs = <json string or ""> ) -
 #' multiDataSetJson ({ ids, names }) is present for multi-dataset aware analyses and pairs
@@ -91,10 +95,6 @@ loadDataSetFromJaspFile <- function(jaspFilePath) {
 
 analysisOptionsFromJaspFile <- function(jaspFilePath, analysisNr) {
     .Call(`_jaspSyntax_analysisOptionsFromJaspFile`, jaspFilePath, analysisNr)
-}
-
-flattenedAnalysisOptionsFromJaspFile <- function(jaspFilePath, analysisNr) {
-    .Call(`_jaspSyntax_flattenedAnalysisOptionsFromJaspFile`, jaspFilePath, analysisNr)
 }
 
 generateAnalysisWrapper <- function(modulePath, analysisName) {

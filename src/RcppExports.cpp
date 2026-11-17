@@ -105,6 +105,22 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// loadQmlAndParseFormOptions
+String loadQmlAndParseFormOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
+RcppExport SEXP _jaspSyntax_loadQmlAndParseFormOptions(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type moduleName(moduleNameSEXP);
+    Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
+    Rcpp::traits::input_parameter< String >::type qmlFile(qmlFileSEXP);
+    Rcpp::traits::input_parameter< String >::type options(optionsSEXP);
+    Rcpp::traits::input_parameter< String >::type version(versionSEXP);
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(loadQmlAndParseFormOptions(moduleName, analysisName, qmlFile, options, version, preloadData));
+    return rcpp_result_gen;
+END_RCPP
+}
 // loadQmlAndParseOptionsStatus
 List loadQmlAndParseOptionsStatus(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
 RcppExport SEXP _jaspSyntax_loadQmlAndParseOptionsStatus(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
@@ -162,18 +178,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< String >::type jaspFilePath(jaspFilePathSEXP);
     Rcpp::traits::input_parameter< int >::type analysisNr(analysisNrSEXP);
     rcpp_result_gen = Rcpp::wrap(analysisOptionsFromJaspFile(jaspFilePath, analysisNr));
-    return rcpp_result_gen;
-END_RCPP
-}
-// flattenedAnalysisOptionsFromJaspFile
-Rcpp::List flattenedAnalysisOptionsFromJaspFile(String jaspFilePath, int analysisNr);
-RcppExport SEXP _jaspSyntax_flattenedAnalysisOptionsFromJaspFile(SEXP jaspFilePathSEXP, SEXP analysisNrSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< String >::type jaspFilePath(jaspFilePathSEXP);
-    Rcpp::traits::input_parameter< int >::type analysisNr(analysisNrSEXP);
-    rcpp_result_gen = Rcpp::wrap(flattenedAnalysisOptionsFromJaspFile(jaspFilePath, analysisNr));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -243,12 +247,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
     {"_jaspSyntax_loadDataSets", (DL_FUNC) &_jaspSyntax_loadDataSets, 1},
     {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},
+    {"_jaspSyntax_loadQmlAndParseFormOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseFormOptions, 6},
     {"_jaspSyntax_loadQmlAndParseOptionsStatus", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptionsStatus, 6},
     {"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 1},
     {"_jaspSyntax_parseDescription", (DL_FUNC) &_jaspSyntax_parseDescription, 1},
     {"_jaspSyntax_loadDataSetFromJaspFile", (DL_FUNC) &_jaspSyntax_loadDataSetFromJaspFile, 1},
     {"_jaspSyntax_analysisOptionsFromJaspFile", (DL_FUNC) &_jaspSyntax_analysisOptionsFromJaspFile, 2},
-    {"_jaspSyntax_flattenedAnalysisOptionsFromJaspFile", (DL_FUNC) &_jaspSyntax_flattenedAnalysisOptionsFromJaspFile, 2},
     {"_jaspSyntax_generateAnalysisWrapper", (DL_FUNC) &_jaspSyntax_generateAnalysisWrapper, 2},
     {"_jaspSyntax_getVariableNames", (DL_FUNC) &_jaspSyntax_getVariableNames, 0},
     {"_jaspSyntax_columnEncoderContextNative", (DL_FUNC) &_jaspSyntax_columnEncoderContextNative, 0},
