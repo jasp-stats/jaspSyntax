@@ -30,3 +30,4 @@ lookup table resolves exactly the tokens the bridge minted and returns
 everything else unchanged, so plain text is a no-op round trip and decoding
 requires a live bridge. jaspSyntax never pattern-matches token spellings in R.
 }
+\keyword{internal}

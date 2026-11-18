@@ -89,7 +89,7 @@ test_that("decodeColumnNames delegates to the native bridge decoder", {
   on.exit(restoreDecoder(), add = TRUE)
 
   expect_equal(
-    jaspSyntax::decodeColumnNames(c("JaspColumn_1_Encoded", "JaspColumn_2_Encoded")),
+    jaspSyntax:::decodeColumnNames(c("JaspColumn_1_Encoded", "JaspColumn_2_Encoded")),
     c("raw score", "group")
   )
 })
@@ -109,7 +109,7 @@ test_that("decodeColumnNames errors when native decoding is unavailable", {
   on.exit(restoreDecoder(), add = TRUE)
 
   expect_error(
-    jaspSyntax::decodeColumnNames(c("JaspColumn_1_Encoded", "JaspColumn_2_Encoded")),
+    jaspSyntax:::decodeColumnNames(c("JaspColumn_1_Encoded", "JaspColumn_2_Encoded")),
     "native decoder unavailable",
     fixed = TRUE
   )
@@ -120,12 +120,12 @@ test_that("decodeColumnNames fails when the decoder is unavailable", {
   on.exit(restoreDecoder(), add = TRUE)
 
   expect_error(
-    jaspSyntax::decodeColumnNames(c("plain", "JaspColumn_1_Encoded")),
+    jaspSyntax:::decodeColumnNames(c("plain", "JaspColumn_1_Encoded")),
     "native decoder unavailable",
     fixed = TRUE
   )
   expect_error(
-    jaspSyntax::decodeColumnNames("JaspColumn_1_Encoded", strict = TRUE),
+    jaspSyntax:::decodeColumnNames("JaspColumn_1_Encoded", strict = TRUE),
     "native decoder unavailable",
     fixed = TRUE
   )
@@ -136,11 +136,11 @@ test_that("decodeColumnNames strict flag is compatibility-only", {
   on.exit(restoreDecoder(), add = TRUE)
 
   expect_equal(
-    jaspSyntax::decodeColumnNames(c("plain", "JaspColumn_1_Encoded"), strict = FALSE),
+    jaspSyntax:::decodeColumnNames(c("plain", "JaspColumn_1_Encoded"), strict = FALSE),
     c("plain", "score")
   )
   expect_equal(
-    jaspSyntax::decodeColumnNames(c("plain", "JaspColumn_1_Encoded"), strict = TRUE),
+    jaspSyntax:::decodeColumnNames(c("plain", "JaspColumn_1_Encoded"), strict = TRUE),
     c("plain", "score")
   )
 })
@@ -154,7 +154,7 @@ test_that("decodeColumnNames passes names the native table does not know through
   # checks of its own, so an unknown name comes back unchanged instead of
   # raising.
   expect_equal(
-    jaspSyntax::decodeColumnNames("JaspColumn_1_Encoded"),
+    jaspSyntax:::decodeColumnNames("JaspColumn_1_Encoded"),
     "JaspColumn_1_Encoded"
   )
 })
@@ -176,7 +176,7 @@ test_that("empty column encoder contexts do not fall through to live native stat
   )
 
   expect_equal(
-    jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", context),
+    jaspSyntax:::decodeColumnText("JaspColumn_1_Encoded", context),
     "JaspColumn_1_Encoded"
   )
   expect_equal(observedContext$columns, list())
@@ -196,7 +196,7 @@ test_that("decodeColumnText does not use R mapping replacement when native decod
     '{"version": 2, "columns": [{"name": "score", "type": "scale"}], "extra": []}'
   )
   expect_error(
-    jaspSyntax::decodeColumnText("JaspColumn_1_Encoded", context),
+    jaspSyntax:::decodeColumnText("JaspColumn_1_Encoded", context),
     "native failure",
     fixed = TRUE
   )
@@ -215,7 +215,7 @@ test_that("decodeColumnText dispatches extra option tokens to the native decoder
   on.exit(restoreNative(), add = TRUE)
 
   expect_equal(
-    jaspSyntax::decodeColumnText("JaspExtraOptions_0_Encoded"),
+    jaspSyntax:::decodeColumnText("JaspExtraOptions_0_Encoded"),
     "Factor A"
   )
   expect_equal(observed, "JaspExtraOptions_0_Encoded")
@@ -238,7 +238,7 @@ test_that("decodeColumnNames delegates the whole vector to the native decoder", 
   # No R-side pre-filtering: raw names ride along and come back
   # unchanged because the native table sweep is a no-op for them.
   expect_equal(
-    jaspSyntax::decodeColumnNames(
+    jaspSyntax:::decodeColumnNames(
       c("score", "score.scale", "JaspColumn_1_Encoded"),
       strict = TRUE
     ),
@@ -247,7 +247,7 @@ test_that("decodeColumnNames delegates the whole vector to the native decoder", 
   expect_equal(observed, c("score", "score.scale", "JaspColumn_1_Encoded"))
 
   expect_equal(
-    jaspSyntax::decodeColumnNames(c("score", "score.scale"), strict = TRUE),
+    jaspSyntax:::decodeColumnNames(c("score", "score.scale"), strict = TRUE),
     c("score", "score.scale")
   )
   expect_equal(observed, c("score", "score.scale", "JaspColumn_1_Encoded", "score", "score.scale"))
@@ -879,8 +879,8 @@ test_that("readDatasetFromJaspFile dispatches through the shared bridge subproce
 })
 
 test_that("loadDataSet keeps numeric columns at full double precision", {
-  jaspSyntax::cleanUp()
-  on.exit(jaspSyntax::cleanUp(), add = TRUE)
+  jaspSyntax:::cleanUp()
+  on.exit(jaspSyntax:::cleanUp(), add = TRUE)
 
   # the data frame importer used to write numbers with the stream's default 6 significant digits,
   # so an analysis computed on e.g. 0.333333 instead of 1/3

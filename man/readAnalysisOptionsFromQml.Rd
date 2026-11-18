@@ -1,21 +1,8 @@
 \name{readAnalysisOptionsFromQml}
-\alias{analysisOptionsFromQml}
 \alias{readAnalysisOptionsFromQml}
 \title{Read Analysis Options Through QML}
 \usage{
 readAnalysisOptionsFromQml(
-  modulePath,
-  analysisName,
-  options = NULL,
-  version = NULL,
-  preloadData = NULL,
-  fresh = TRUE,
-  includeMeta = TRUE,
-  includeTypeOptions = TRUE,
-  isolated = TRUE
-)
-
-analysisOptionsFromQml(
   modulePath,
   analysisName,
   options = NULL,

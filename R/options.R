@@ -447,27 +447,6 @@ readAnalysisOptionsFromQml <- function(modulePath, analysisName, options = NULL,
   .attachOptionAttributes(parsedOptions, description, analysis, resolved$qmlFile)
 }
 
-#' @rdname readAnalysisOptionsFromQml
-#' @export
-analysisOptionsFromQml <- function(modulePath, analysisName, options = NULL,
-                                   version = NULL, preloadData = NULL,
-                                   fresh = TRUE,
-                                   includeMeta = TRUE,
-                                   includeTypeOptions = TRUE,
-                                   isolated = TRUE) {
-  readAnalysisOptionsFromQml(
-    modulePath = modulePath,
-    analysisName = analysisName,
-    options = options,
-    version = version,
-    preloadData = preloadData,
-    fresh = fresh,
-    includeMeta = includeMeta,
-    includeTypeOptions = includeTypeOptions,
-    isolated = isolated
-  )
-}
-
 #' Read Default Analysis Options
 #'
 #' Loads an analysis QML form and returns the options produced by the native

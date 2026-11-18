@@ -3,7 +3,6 @@
 \alias{readLoadedDataset}
 \alias{readRequestedDataset}
 \alias{readDatasetHeader}
-\alias{decodeColumnNames}
 \title{High-Level Native Dataset Helpers}
 \usage{
 loadAnalysisDataset(
@@ -23,7 +22,6 @@ readRequestedDataset(decode = TRUE, normalize = TRUE)
 
 readDatasetHeader(decode = TRUE)
 
-decodeColumnNames(columnNames, strict = FALSE)
 }
 \arguments{
 \item{dataset}{Raw data frame supplied by the caller.}
@@ -42,12 +40,6 @@ decodeColumnNames(columnNames, strict = FALSE)
 
 \item{normalize}{Whether to normalize bridge-returned factor columns back to plain character vectors while preserving numeric-looking factor labels.}
 
-\item{columnNames}{Character vector of column names.}
-
-\item{strict}{Compatibility-only flag retained for callers that pass it.
-Every name is handed to the native decoder; raw/non-token names come back
-unchanged because the native lookup table resolves only the tokens the bridge
-minted.}
 }
 \value{
 \code{loadAnalysisDataset()} returns a list with \code{loadedDataset},
@@ -59,8 +51,7 @@ removed together with the deleted
 
 \code{readLoadedDataset()} and \code{readRequestedDataset()} return data
 frames. \code{readDatasetHeader()} returns a data frame with \code{name} and
-\code{encodedName} columns. \code{decodeColumnNames()} returns a character
-vector.
+\code{encodedName} columns.
 }
 \description{
 These helpers keep native dataset preload, requested-data state, and column-name

@@ -147,7 +147,7 @@ test_that("readAnalysisOptionsFromJaspFile replays real Desktop options to runti
 
 test_that("native and R bridge exports keep the expected consumer formals", {
   expect_named(formals(jaspSyntax::loadDataSetFromJaspFile), "jaspFilePath")
-  expect_named(formals(jaspSyntax::analysisOptionsFromJaspFile), c("jaspFilePath", "analysisNr"))
+  expect_named(formals(jaspSyntax:::analysisOptionsFromJaspFile), c("jaspFilePath", "analysisNr"))
   expect_named(
     formals(jaspSyntax::loadQmlAndParseOptions),
     c("moduleName", "analysisName", "qmlFile", "options", "version", "preloadData")
@@ -164,15 +164,21 @@ test_that("native and R bridge exports keep the expected consumer formals", {
   expect_named(formals(jaspSyntax::readLoadedDataset), c("decode", "normalize"))
   expect_named(formals(jaspSyntax::readRequestedDataset), c("decode", "normalize"))
   expect_named(formals(jaspSyntax::readDatasetHeader), "decode")
-  expect_named(formals(jaspSyntax::decodeColumnNames), c("columnNames", "strict"))
-  expect_true(is.null(formals(jaspSyntax::columnEncoderContext)) ||
-    identical(names(formals(jaspSyntax::columnEncoderContext)), character(0)))
-  expect_named(formals(jaspSyntax::decodeColumnText), c("text", "encoderContext"))
+  expect_named(formals(jaspSyntax:::decodeColumnNames), c("columnNames", "strict"))
+  expect_true(is.null(formals(jaspSyntax:::columnEncoderContext)) ||
+    identical(names(formals(jaspSyntax:::columnEncoderContext)), character(0)))
+  expect_named(formals(jaspSyntax:::decodeColumnText), c("text", "encoderContext"))
   # decodeAnalysisResults deleted - zero callers outside its own tests, results
   # decode is C++-side (Engine::sendString / rbridge callbacks).
   expect_false("decodeAnalysisResults" %in% getNamespaceExports("jaspSyntax"))
   expect_false("columnMapping" %in% getNamespaceExports("jaspSyntax"))
   expect_false("columnDecoderSnapshot" %in% getNamespaceExports("jaspSyntax"))
+  # Internals without callers outside jaspSyntax: the raw native options reader (readAnalysisOptionsFromJaspFile is
+  # the API), cleanUp (clearNativeState is) and the column decoding helpers the dataset readers use. The
+  # analysisOptionsFromQml alias of readAnalysisOptionsFromQml is gone.
+  for (internal in c("analysisOptionsFromJaspFile", "cleanUp", "columnEncoderContext", "decodeColumnText", "decodeColumnNames"))
+    expect_false(internal %in% getNamespaceExports("jaspSyntax"), info = internal)
+  expect_false(exists("analysisOptionsFromQml", envir = asNamespace("jaspSyntax"), inherits = FALSE))
   expect_named(
     formals(jaspSyntax::readAnalysisOptionsFromJaspFile),
     c("jaspFilePath", "modulePath", "runtime", "includeMeta", "includeTypeOptions", "flattenTypes", "isolated")

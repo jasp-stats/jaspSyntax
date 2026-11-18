@@ -167,8 +167,8 @@ test_that("readAnalysisOptionsFromQml applies supplied options", {
 })
 
 test_that("readAnalysisOptionsFromQml returns Desktop runtime-encoded variable options", {
-  jaspSyntax::cleanUp()
-  on.exit(jaspSyntax::cleanUp(), add = TRUE)
+  jaspSyntax:::cleanUp()
+  on.exit(jaspSyntax:::cleanUp(), add = TRUE)
   jaspSyntax::loadDataSet(data.frame(
     x = c(1.1, 2.2, 3.3),
     group = factor(c("a", "b", "a")),
@@ -191,7 +191,7 @@ test_that("readAnalysisOptionsFromQml returns Desktop runtime-encoded variable o
   # round-tripped exclusively through the native decoder below.
   expect_match(opts$variables[[1]], "^JASPColumn_D[0-9]+_F[0-9]+_[0-9]+_Encoded$")
   # ...and the very same value decodes back to the plain column name the user passed in
-  expect_equal(jaspSyntax::decodeColumnText(opts$variables[[1]]), "x")
+  expect_equal(jaspSyntax:::decodeColumnText(opts$variables[[1]]), "x")
 
   loadedDataset <- jaspSyntax::readLoadedDataset(decode = FALSE)
   expect_true(any(vapply(

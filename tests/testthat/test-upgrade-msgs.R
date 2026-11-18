@@ -20,7 +20,7 @@ parseUpgrade <- function(options, version, parser = jaspSyntax::loadQmlAndParseO
 }
 
 localUpgradeBridge <- function() {
-  jaspSyntax::cleanUp()
+  jaspSyntax:::cleanUp()
   jaspSyntax::setParameter("verbose", "none")
   jaspSyntax::loadDataSet(data.frame(x = c(1.1, 2.2, 3.3), y = c(3.2, 2.1, 1.3)))
 
@@ -32,7 +32,7 @@ localUpgradeBridge <- function() {
 
 test_that("the messages of an upgrade are warnings, and part of the status", {
   localUpgradeBridge()
-  on.exit(jaspSyntax::cleanUp(), add = TRUE)
+  on.exit(jaspSyntax:::cleanUp(), add = TRUE)
 
   parsed  <- parseUpgrade(list(number = 5, vars = "x"), "0.1")
   options <- jsonlite::fromJSON(parsed$result$options, simplifyVector = FALSE)
@@ -52,7 +52,7 @@ test_that("the messages of an upgrade are warnings, and part of the status", {
 
 test_that("loadQmlAndParseOptions gives the same warnings", {
   localUpgradeBridge()
-  on.exit(jaspSyntax::cleanUp(), add = TRUE)
+  on.exit(jaspSyntax:::cleanUp(), add = TRUE)
 
   parsed  <- parseUpgrade(list(number = 5), "0.1", parser = jaspSyntax::loadQmlAndParseOptions)
   options <- jsonlite::fromJSON(as.character(parsed$result), simplifyVector = FALSE)
@@ -63,7 +63,7 @@ test_that("loadQmlAndParseOptions gives the same warnings", {
 
 test_that("an option that the form does not know is a warning", {
   localUpgradeBridge()
-  on.exit(jaspSyntax::cleanUp(), add = TRUE)
+  on.exit(jaspSyntax:::cleanUp(), add = TRUE)
 
   parsed <- parseUpgrade(list(count = 2, conut = 5), "0.2")
 
@@ -74,7 +74,7 @@ test_that("an option that the form does not know is a warning", {
 
 test_that("options of the current version give no warning", {
   localUpgradeBridge()
-  on.exit(jaspSyntax::cleanUp(), add = TRUE)
+  on.exit(jaspSyntax:::cleanUp(), add = TRUE)
 
   parsed <- parseUpgrade(list(count = 2, variables = "y"), "0.2")
 

@@ -111,9 +111,9 @@ test_that("non-token text survives the native decode sweep unchanged", {
     "",
     NA_character_
   )
-  expect_equal(jaspSyntax::decodeColumnText(plain), plain)
-  expect_equal(jaspSyntax::decodeColumnNames(plain), plain)
-  expect_equal(jaspSyntax::decodeColumnNames(plain, strict = TRUE), plain)
+  expect_equal(jaspSyntax:::decodeColumnText(plain), plain)
+  expect_equal(jaspSyntax:::decodeColumnNames(plain), plain)
+  expect_equal(jaspSyntax:::decodeColumnNames(plain, strict = TRUE), plain)
 
   # Real tokens minted by the live bridge still round-trip through the very
   # same call - the sweep decodes what it knows and nothing else. (Token
@@ -121,13 +121,13 @@ test_that("non-token text survives the native decode sweep unchanged", {
   dataset <- data.frame(score = c(1.5, 2.5), group = factor(c("a", "b")), check.names = FALSE)
   rawNames <- names(jaspSyntax::readLoadedDataset(decode = FALSE))
   expect_true(all(grepl("^JASPColumn_D[0-9]+_F[0-9]+_[0-9]+_Encoded$", rawNames)))
-  expect_setequal(jaspSyntax::decodeColumnNames(rawNames), names(dataset))
+  expect_setequal(jaspSyntax:::decodeColumnNames(rawNames), names(dataset))
 
   token <- rawNames[[1L]]
-  decodedToken <- jaspSyntax::decodeColumnNames(token)
+  decodedToken <- jaspSyntax:::decodeColumnNames(token)
   expect_true(decodedToken %in% names(dataset))
   expect_equal(
-    jaspSyntax::decodeColumnText(c("plain text", token, "more plain text")),
+    jaspSyntax:::decodeColumnText(c("plain text", token, "more plain text")),
     c("plain text", decodedToken, "more plain text")
   )
 })

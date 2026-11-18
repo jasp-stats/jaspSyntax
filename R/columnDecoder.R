@@ -16,7 +16,7 @@
 #'
 #' @return A serializable column encoder context.
 #'
-#' @export
+#' @keywords internal
 columnEncoderContext <- function() {
   rawContext <- columnEncoderContextNative()
   .columnEncoderContextFromJson(rawContext)
@@ -35,7 +35,7 @@ columnEncoderContext <- function() {
 #'
 #' @return A character vector with native column tokens decoded.
 #'
-#' @export
+#' @keywords internal
 decodeColumnText <- function(text, encoderContext = NULL) {
   if (!is.character(text)) {
     stop("`text` must be a character vector", call. = FALSE)

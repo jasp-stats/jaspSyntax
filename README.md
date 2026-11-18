@@ -20,7 +20,7 @@ Prefer the high-level helpers such as `readModuleDescription()`,
 raw native bridge calls.
 
 The lower-level helpers (`parseQmlOptions()`, lifecycle controls, dataset-state
-readers, column mapping helpers, and `nativeBridgeProvenance()`) are exported
+readers, and `nativeBridgeProvenance()`) are exported
 for bridge integration and diagnostics. Treat them as experimental/native-facing
 APIs; ordinary callers should stay on the high-level readers above. The raw
 native bridge calls follow the SyntaxInterface ABI rather than a stable R API.

@@ -50,7 +50,7 @@ test_that("native decoder contexts can be interleaved without mutating live stat
   state <- lapply(datasets, function(dataset) {
     jaspSyntax::clearNativeState()
     jaspSyntax::loadDataSet(dataset)
-    context <- jaspSyntax::columnEncoderContext()
+    context <- jaspSyntax:::columnEncoderContext()
     list(
       context = context,
       tokens = names(jaspSyntax::readLoadedDataset(decode = FALSE)),
@@ -64,28 +64,28 @@ test_that("native decoder contexts can be interleaved without mutating live stat
 
   jaspSyntax::clearNativeState()
   jaspSyntax::loadDataSet(datasets$alpha)
-  liveContext <- jaspSyntax::columnEncoderContext()
+  liveContext <- jaspSyntax:::columnEncoderContext()
   liveTokens <- state$alpha$tokens
   liveExpected <- names(datasets$alpha)
 
-  expect_equal(jaspSyntax::decodeColumnText(liveTokens), liveExpected)
+  expect_equal(jaspSyntax:::decodeColumnText(liveTokens), liveExpected)
 
   interleavedNames <- c("beta", "gamma", "alpha", "beta", "alpha", "gamma")
   for (datasetName in interleavedNames) {
     entry <- state[[datasetName]]
     expect_equal(
-      jaspSyntax::decodeColumnText(entry$tokens, entry$context),
+      jaspSyntax:::decodeColumnText(entry$tokens, entry$context),
       entry$columnNames
     )
-    expect_equal(jaspSyntax::decodeColumnText(liveTokens), liveExpected)
+    expect_equal(jaspSyntax:::decodeColumnText(liveTokens), liveExpected)
   }
 
-  restoredContext <- jaspSyntax::columnEncoderContext()
+  restoredContext <- jaspSyntax:::columnEncoderContext()
   # the wrapper carries {version, prefix, native} only - the capture payload is
   # compared, not duplicated per-column fields.
   expect_equal(restoredContext$native, liveContext$native)
   expect_equal(restoredContext$prefix, liveContext$prefix)
-  expect_equal(jaspSyntax::decodeColumnText(liveTokens), liveExpected)
+  expect_equal(jaspSyntax:::decodeColumnText(liveTokens), liveExpected)
 })
 
 test_that("native decoder C API reports malformed contexts without corrupting live state", {
@@ -106,7 +106,7 @@ test_that("native decoder C API reports malformed contexts without corrupting li
   expect_equal(parsedContext$extra, list())
 
   tokens <- c("JaspColumn_0_Encoded", "JaspColumn_3_Encoded")
-  liveBefore <- jaspSyntax::decodeColumnText(tokens)
+  liveBefore <- jaspSyntax:::decodeColumnText(tokens)
 
   expect_error(
     jaspSyntax:::decodeColumnTextNative(tokens, "{not valid context json"),
@@ -114,5 +114,5 @@ test_that("native decoder C API reports malformed contexts without corrupting li
     fixed = TRUE
   )
 
-  expect_equal(jaspSyntax::decodeColumnText(tokens), liveBefore)
+  expect_equal(jaspSyntax:::decodeColumnText(tokens), liveBefore)
 })

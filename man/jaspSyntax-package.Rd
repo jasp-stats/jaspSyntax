@@ -25,7 +25,7 @@ metadata, \code{readAnalysisOptionsFromQml()} or
 and \code{readDatasetFromJaspFile()} for saved \code{.jasp} files. The low-level native bridge calls remain exported
 for compatibility, but package code should prefer the higher-level helpers.
 Helpers such as \code{parseQmlOptions()}, lifecycle controls, dataset-state
-readers, column mapping, and \code{nativeBridgeProvenance()} are
+readers, and \code{nativeBridgeProvenance()} are
 native-facing/experimental integration APIs.
 }
 \author{

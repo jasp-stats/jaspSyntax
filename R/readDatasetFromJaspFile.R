@@ -212,7 +212,7 @@
 #'
 #' @return A character vector with decoded names.
 #'
-#' @export
+#' @keywords internal
 decodeColumnNames <- function(columnNames, strict = FALSE) {
   if (!is.character(columnNames)) {
     stop("`columnNames` must be a character vector", call. = FALSE)

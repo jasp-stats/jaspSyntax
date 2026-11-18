@@ -1,7 +1,5 @@
 \name{nativeBridge}
 \alias{nativeBridge}
-\alias{analysisOptionsFromJaspFile}
-\alias{cleanUp}
 \alias{generateAnalysisWrapper}
 \alias{generateModuleWrappers}
 \alias{getVariableNames}
@@ -15,10 +13,6 @@
 \alias{setParameter}
 \title{Low-Level SyntaxInterface Bridge}
 \usage{
-analysisOptionsFromJaspFile(jaspFilePath, analysisNr)
-
-cleanUp()
-
 generateAnalysisWrapper(modulePath, analysisName)
 
 generateModuleWrappers(modulePath)
@@ -57,8 +51,6 @@ setParameter(name, value)
 }
 \arguments{
 \item{jaspFilePath}{Path to a \code{.jasp} file.}
-
-\item{analysisNr}{Zero-based analysis index.}
 
 \item{modulePath}{Path to a JASP module.}
 
@@ -108,9 +100,8 @@ analysis diagnostics visible. Native logging is disabled by default and can also
 be enabled before bridge initialization with the \code{JASP_SYNTAX_VERBOSE=1}
 environment variable.
 
-\code{cleanUp()} clears the native state and then runs the legacy cleanup hook.
 Use \code{\link{clearQmlForms}}, \code{\link{clearDatasetState}}, or
-\code{\link{clearNativeState}} when the intended lifecycle scope matters.
+\code{\link{clearNativeState}} to clear native state.
 Use \code{\link{nativeBridgeProvenance}} to inspect the recorded
 SyntaxInterface header/binary source for ABI diagnostics.
 
