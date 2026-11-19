@@ -46,6 +46,11 @@ A named list of parsed options, or a JSON string when \code{output = "json"}.
 Loads a QML form and parses supplied options through the native SyntaxInterface bridge. The native bridge binds the QML controls, applies option metadata, and runs the same column-name/type encoding used before JASP Desktop calls the R backend.
 }
 \details{
+No analysis run is prepared: a dataset selection option of a multi-dataset
+form (e.g. \code{dataSetA}) that names no dataset stays empty instead of failing,
+so the defaults of such a form can be read without loading a dataset. A
+dataset selection that is given must name a loaded dataset.
+
 This is a low-level/native-facing helper for diagnostics and bridge integration.
 Most callers should use \code{\link{readAnalysisOptionsFromQml}} so QML file
 names, module versions, and \code{preloadData} come from the parsed module

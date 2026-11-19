@@ -328,6 +328,68 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 	return result.c_str();
 }
 
+// The options the form gives (e.g. its defaults) when no run follows, as loadQmlAndParseOptions otherwise: a dataset
+// selection option that names no dataset stays empty instead of failing, and no multi-dataset run is prepared.
+// [[Rcpp::export]]
+String loadQmlAndParseFormOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
+{
+	std::string qmlFileStr		= expandedPath(qmlFile),
+				optionsStr		= options.get_cstring(),
+				versionStr		= version.get_cstring(),
+				analysisNameStr	= analysisName.get_cstring(),
+				moduleNameStr	= moduleName.get_cstring();
+
+	Json::Value status = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeLoadQmlAndParseFormOptionsStatus", [&]() {
+			return syntaxBridgeLoadQmlAndParseFormOptionsStatus(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+		}),
+		"syntaxBridgeLoadQmlAndParseFormOptionsStatus"
+	);
+
+	if (!status["ok"].asBool())
+	{
+		std::string error = status.isMember("error") ? status["error"].asString() : "unknown error";
+		Rcpp::stop("Error when parsing options: %s", error.c_str());
+	}
+
+	warnUpgradeMsgs(status);
+
+	static std::string result;
+	result = status["options"].toStyledString();
+	return result.c_str();
+}
+
+// The R syntax of the analysis with these options: the call of its R wrapper with the options that differ from the
+// defaults of the form, as JASP shows it. No run follows, as for loadQmlAndParseFormOptions.
+// [[Rcpp::export]]
+String generateAnalysisSyntaxNative(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
+{
+	std::string qmlFileStr		= expandedPath(qmlFile),
+				optionsStr		= options.get_cstring(),
+				versionStr		= version.get_cstring(),
+				analysisNameStr	= analysisName.get_cstring(),
+				moduleNameStr	= moduleName.get_cstring();
+
+	Json::Value status = parseBridgeJsonOrStop(
+		callBridgeOrStop("syntaxBridgeGenerateAnalysisSyntaxStatus", [&]() {
+			return syntaxBridgeGenerateAnalysisSyntaxStatus(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+		}),
+		"syntaxBridgeGenerateAnalysisSyntaxStatus"
+	);
+
+	if (!status["ok"].asBool())
+	{
+		std::string error = status.isMember("error") ? status["error"].asString() : "unknown error";
+		Rcpp::stop("Error when generating the R syntax: %s", error.c_str());
+	}
+
+	warnUpgradeMsgs(status);
+
+	static std::string result;
+	result = status["syntax"].asString();
+	return result.c_str();
+}
+
 //' Parse options through the QML form and return the FULL bridge status in pieces:
 //' list(options = <json string>, multiDataSetJson = <json string or "">, upgradeMsgs = <json string or ""> ) -
 //' multiDataSetJson ({ ids, names }) is present for multi-dataset aware analyses and pairs

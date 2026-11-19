@@ -105,6 +105,38 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// loadQmlAndParseFormOptions
+String loadQmlAndParseFormOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
+RcppExport SEXP _jaspSyntax_loadQmlAndParseFormOptions(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type moduleName(moduleNameSEXP);
+    Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
+    Rcpp::traits::input_parameter< String >::type qmlFile(qmlFileSEXP);
+    Rcpp::traits::input_parameter< String >::type options(optionsSEXP);
+    Rcpp::traits::input_parameter< String >::type version(versionSEXP);
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(loadQmlAndParseFormOptions(moduleName, analysisName, qmlFile, options, version, preloadData));
+    return rcpp_result_gen;
+END_RCPP
+}
+// generateAnalysisSyntaxNative
+String generateAnalysisSyntaxNative(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
+RcppExport SEXP _jaspSyntax_generateAnalysisSyntaxNative(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type moduleName(moduleNameSEXP);
+    Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
+    Rcpp::traits::input_parameter< String >::type qmlFile(qmlFileSEXP);
+    Rcpp::traits::input_parameter< String >::type options(optionsSEXP);
+    Rcpp::traits::input_parameter< String >::type version(versionSEXP);
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(generateAnalysisSyntaxNative(moduleName, analysisName, qmlFile, options, version, preloadData));
+    return rcpp_result_gen;
+END_RCPP
+}
 // loadQmlAndParseOptionsStatus
 List loadQmlAndParseOptionsStatus(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
 RcppExport SEXP _jaspSyntax_loadQmlAndParseOptionsStatus(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
@@ -243,6 +275,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
     {"_jaspSyntax_loadDataSets", (DL_FUNC) &_jaspSyntax_loadDataSets, 1},
     {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},
+    {"_jaspSyntax_loadQmlAndParseFormOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseFormOptions, 6},
+    {"_jaspSyntax_generateAnalysisSyntaxNative", (DL_FUNC) &_jaspSyntax_generateAnalysisSyntaxNative, 6},
     {"_jaspSyntax_loadQmlAndParseOptionsStatus", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptionsStatus, 6},
     {"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 1},
     {"_jaspSyntax_parseDescription", (DL_FUNC) &_jaspSyntax_parseDescription, 1},
