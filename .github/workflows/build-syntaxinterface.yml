@@ -19,7 +19,7 @@ on:
         required: false
         default: ''
       update_configure:
-        description: 'Set this release tag as the default in configure and configure.win, and commit that to the branch the workflow runs on'
+        description: 'Set this release tag as the default in configure and configure.win, commit that to the branch the workflow runs on, and move the git tag to that commit (needed for a JASP version that unit tests run against)'
         required: false
         type: boolean
         default: false
@@ -420,6 +420,9 @@ jobs:
             echo "jasp_desktop_ref=${{ env.JASP_DESKTOP_REF }}"
             echo "jasp_desktop_sha=$(git -C jasp-desktop rev-parse HEAD)"
             echo "jasp_syntax_sha=$(git rev-parse HEAD)"
+            # The jaspBase this jasp-desktop runs its analyses with (a submodule), recorded in jasp-version.json.
+            echo "jaspbase_url=$(git -C jasp-desktop config -f .gitmodules submodule.Engine/jaspBase.url)"
+            echo "jaspbase_sha=$(git -C jasp-desktop ls-tree HEAD Engine/jaspBase | awk '{print $3}')"
             echo "qt_version=${{ env.QT_VERSION }}"
             echo "qt_submodules=${{ env.QT_SUBMODULES }}"
           } > syntaxinterface-sources/BUILD_PROVENANCE
@@ -462,7 +465,44 @@ jobs:
           merge-multiple: true
           path: libs
 
-      # Full build: regenerate checksums and release notes from the source bundle.
+      # Full build: regenerate the version file, checksums and release notes from the source bundle.
+
+      # jasp-version.json says which packages make up the JASP version of this release, so that
+      # jaspTools::setupJaspTools(jaspVersion = "<tag>") can install them to run unit tests against it:
+      # jaspSyntax at this tag (whose configure downloads these libraries, see update_configure), and
+      # the jaspBase that jasp-desktop pins as a submodule.
+      - name: Write jasp-version.json
+        if: needs.setup.outputs.full_build == 'true'
+        shell: bash
+        run: |
+          tar -xOf libs/SyntaxInterface-sources.tar.gz ./BUILD_PROVENANCE > BUILD_PROVENANCE
+          value() { grep -E "^$1=" BUILD_PROVENANCE | head -n 1 | sed -E 's/^[^=]+=//'; }
+          # https://github.com/jasp-stats/jaspBase.git -> jasp-stats/jaspBase
+          JASPBASE_REPO=$(value jaspbase_url | sed -E 's#^(https?://github\.com/|git@github\.com:)##; s#\.git$##; s#/$##')
+          JASPBASE_SHA=$(value jaspbase_sha)
+          if [ -z "$JASPBASE_REPO" ] || [ -z "$JASPBASE_SHA" ]; then
+            echo "::error::BUILD_PROVENANCE does not say which jaspBase jasp-desktop uses."
+            exit 1
+          fi
+          jq -n \
+            --arg tag             "$RELEASE_TAG" \
+            --arg syntaxRepo      "${{ github.repository }}" \
+            --arg desktopRepo     "$JASP_DESKTOP_REPO" \
+            --arg desktopRef      "$(value jasp_desktop_ref)" \
+            --arg desktopSha      "$(value jasp_desktop_sha)" \
+            --arg jaspBaseRepo    "$JASPBASE_REPO" \
+            --arg jaspBaseSha     "$JASPBASE_SHA" \
+            --arg qtVersion       "$(value qt_version)" \
+            '{
+              schema:      1,
+              jaspVersion: $tag,
+              jaspSyntax:  { repo: $syntaxRepo,   ref: $tag, releaseTag: $tag },
+              jaspDesktop: { repo: $desktopRepo,  ref: $desktopRef, sha: $desktopSha },
+              jaspBase:    { repo: $jaspBaseRepo, sha: $jaspBaseSha },
+              qtVersion:   $qtVersion
+            }' > libs/jasp-version.json
+          cat libs/jasp-version.json
+
       - name: Generate checksums
         if: needs.setup.outputs.full_build == 'true'
         working-directory: libs
@@ -558,14 +598,23 @@ jobs:
             fi
           done
 
-          if git diff --quiet -- configure configure.win; then
-            echo "configure and configure.win already default to $RELEASE_TAG."
-            exit 0
-          fi
-          git diff -- configure configure.win
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Update GitHub release tag to $RELEASE_TAG" -- configure configure.win
-          # The build takes hours; the branch may have moved on in the meantime.
-          git pull --rebase origin "${{ github.ref_name }}"
-          git push origin "HEAD:${{ github.ref_name }}"
+
+          if git diff --quiet -- configure configure.win; then
+            echo "configure and configure.win already default to $RELEASE_TAG."
+          else
+            git diff -- configure configure.win
+            git commit -m "Update GitHub release tag to $RELEASE_TAG" -- configure configure.win
+            # The build takes hours; the branch may have moved on in the meantime.
+            git pull --rebase origin "${{ github.ref_name }}"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+          # The git tag of the release is where installing jaspSyntax@<tag> takes the R code from
+          # (jasp-version.json points there). When the release was created, the tag was put on
+          # whatever the default branch was then, whose configure downloads other libraries; move
+          # it to this commit, so the R code and the libraries of the tag belong together.
+          # The release stays attached to the tag name.
+          git tag -f "$RELEASE_TAG" HEAD
+          git push -f origin "refs/tags/$RELEASE_TAG"
