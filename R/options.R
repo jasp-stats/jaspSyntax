@@ -300,6 +300,11 @@ resolveAnalysisQml <- function(modulePath, analysisName) {
 #' option metadata is applied, and column-name/type encoding is handled by the
 #' native `ColumnEncoder`.
 #'
+#' No analysis run is prepared: a dataset selection option of a multi-dataset
+#' form (e.g. `dataSetA`) that names no dataset stays empty instead of failing,
+#' so the defaults of such a form can be read without loading a dataset. A
+#' dataset selection that is given must name a loaded dataset.
+#'
 #' @param qmlFile Path to an analysis QML file.
 #' @param options Named list of options, a JSON object string, or `NULL` for
 #'   defaults.
@@ -371,7 +376,8 @@ parseQmlOptions <- function(qmlFile, options = NULL, moduleName = "jaspModule",
     clearQmlForms()
   }
 
-  rawOptions <- loadQmlAndParseOptions(
+  # No run follows: a dataset selection option may stay empty (no dataset needs to be loaded for the defaults)
+  rawOptions <- loadQmlAndParseFormOptions(
     moduleName = moduleName,
     analysisName = analysisName,
     qmlFile = qmlFile,
@@ -384,7 +390,7 @@ parseQmlOptions <- function(qmlFile, options = NULL, moduleName = "jaspModule",
     return(rawOptions)
   }
 
-  parsedOptions <- .fromJsonObject(rawOptions, "jaspSyntax::loadQmlAndParseOptions()")
+  parsedOptions <- .fromJsonObject(rawOptions, "jaspSyntax::parseQmlOptions()")
   .filterOptionMetadata(parsedOptions, includeMeta, includeTypeOptions)
 }
 
@@ -464,6 +470,114 @@ analysisOptionsFromQml <- function(modulePath, analysisName, options = NULL,
     fresh = fresh,
     includeMeta = includeMeta,
     includeTypeOptions = includeTypeOptions,
+    isolated = isolated
+  )
+}
+
+#' Generate the R Syntax of an Analysis
+#'
+#' Binds options to a QML form, as [parseQmlOptions()] does, and gives the R
+#' syntax JASP shows for the analysis: the call of its R wrapper
+#' (`module::analysis(data = NULL, version = ..., ...)`) with the options that
+#' differ from the defaults of the form.
+#'
+#' Options of an older `version` are upgraded with the `Upgrades.qml` of the
+#' module first, and the syntax is then written for the version of the module
+#' of the form. A form drops variables that are not in the loaded data, so load
+#' the data of the analysis first (and keep `isolated = FALSE`) when the options
+#' name variables.
+#'
+#' @inheritParams parseQmlOptions
+#' @param isolated Whether to run native QML parsing in a separate R process.
+#'   The data loaded in this process is not available there.
+#'
+#' @return The R syntax, a single string.
+#'
+#' @export
+analysisSyntax <- function(qmlFile, options = NULL, moduleName = "jaspModule",
+                           analysisName = NULL, version = "0",
+                           preloadData = TRUE, fresh = TRUE,
+                           isolated = FALSE) {
+  qmlFile <- .validateQmlFile(qmlFile)
+
+  if (is.null(analysisName)) {
+    analysisName <- tools::file_path_sans_ext(basename(qmlFile))
+  }
+
+  moduleName <- .validateScalarString(moduleName, "moduleName")
+  analysisName <- .validateAnalysisName(analysisName)
+  version <- .validateScalarString(version, "version")
+  preloadData <- .validateFlag(preloadData, "preloadData")
+  fresh <- .validateFlag(fresh, "fresh")
+
+  isolated <- .validateFlag(isolated, "isolated")
+  if (isolated) {
+    return(.runBridgeSubprocess(
+      task = "analysis_syntax",
+      target = "analysisSyntax",
+      input = list(
+        qmlFile = qmlFile,
+        options = options,
+        moduleName = moduleName,
+        analysisName = analysisName,
+        version = version,
+        preloadData = preloadData,
+        fresh = fresh,
+        isolated = FALSE
+      ),
+      failureLabel = "analysisSyntax"
+    ))
+  }
+
+  if (fresh) {
+    clearQmlForms()
+  }
+
+  generateAnalysisSyntaxNative(
+    moduleName = moduleName,
+    analysisName = analysisName,
+    qmlFile = qmlFile,
+    options = .toOptionsJson(options),
+    version = version,
+    preloadData = preloadData
+  )
+}
+
+#' Read the R Syntax of a Module Analysis
+#'
+#' Resolves an analysis in a module, as [readAnalysisOptionsFromQml()] does,
+#' and gives its R syntax with [analysisSyntax()].
+#'
+#' @inheritParams readAnalysisOptionsFromQml
+#' @param version Module version the options were written for. Defaults to the
+#'   version from `Description.qml`/`DESCRIPTION`: the options are then not
+#'   upgraded.
+#' @inheritParams analysisSyntax
+#'
+#' @return The R syntax, a single string.
+#'
+#' @export
+readAnalysisSyntaxFromQml <- function(modulePath, analysisName, options = NULL,
+                                      version = NULL, preloadData = NULL,
+                                      fresh = TRUE, isolated = FALSE) {
+  resolved <- resolveAnalysisQml(modulePath, analysisName)
+
+  if (is.null(version)) {
+    version <- resolved$version
+  }
+
+  if (is.null(preloadData)) {
+    preloadData <- resolved$preloadData
+  }
+
+  analysisSyntax(
+    qmlFile = resolved$qmlFile,
+    options = options,
+    moduleName = resolved$moduleName,
+    analysisName = resolved$analysisName,
+    version = version,
+    preloadData = preloadData,
+    fresh = fresh,
     isolated = isolated
   )
 }

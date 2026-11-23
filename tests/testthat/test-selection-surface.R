@@ -216,3 +216,39 @@ test_that("the zoo form (two per-list selections) parses through the bridge", {
   expect_null(parsed[[".filterIds"]])
   expect_equal(metaProvenanceKeys(parsed), 0L)
 })
+
+# parseQmlOptions() prepares no run: the defaults of a multi-dataset form can be read without a dataset, and an empty
+# selection stays empty ("", the default of the R wrapper) whatever is loaded. A selection that is given must still
+# name a loaded dataset, and a run still refuses an empty one.
+parseSelectionForm <- function(options = NULL) {
+  jaspSyntax::parseQmlOptions(selectionQml(), options = options, moduleName = "minimalModule",
+                              analysisName = "selectionFunc", version = "1", isolated = FALSE, includeMeta = FALSE)
+}
+
+test_that("parseQmlOptions gives the defaults of a multi-dataset form without a loaded dataset", {
+  localSelectionBridge()
+  on.exit(jaspSyntax::clearNativeState(), add = TRUE)
+
+  defaults <- parseSelectionForm()
+  expect_identical(defaults$dataSetA, "")
+  expect_equal(defaults$dependentA$value, list())
+  expect_error(parseSelectionForm(list(dataSetA = "Alpha")), "matches no dataset selection string")
+})
+
+test_that("parseQmlOptions leaves an empty selection empty when datasets are loaded", {
+  localSelectionBridge()
+  on.exit(jaspSyntax::clearNativeState(), add = TRUE)
+
+  invisible(jaspSyntax::loadDataSets(list(Alpha = data.frame(x = 1:3), B = data.frame(y = 1:4))))
+
+  expect_identical(parseSelectionForm()$dataSetA, "")
+  expect_identical(parseSelectionForm(list(dataSetA = ""))$dataSetA, "")
+
+  selected <- parseSelectionForm(list(dataSetA = "Alpha", dependentA = "x"))
+  expect_true(nzchar(selected$dataSetA))
+  expect_equal(selected$dependentA$value, list("x"))
+
+  expect_error(parseSelectionForm(list(dataSetA = "Nope")), "matches no dataset selection string")
+  # a run still needs a selection
+  expect_error(parseSelectionJson("{}"), "must name one of the loaded datasets")
+})

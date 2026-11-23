@@ -817,9 +817,11 @@ test_that("SyntaxInterface symbol checker fails when DLL exports cannot be inspe
     }
   }, add = TRUE)
 
+  # quoted: once the bridge ran in this process, tempfile() is in JASP's temp folder, which can have spaces
+  # ("Application Support" on macOS), and system2() passes its arguments through the shell
   output <- suppressWarnings(system2(
     bash,
-    args = c(bashPath(script), bashPath(header), bashPath(binary), bashPath(source)),
+    args = shQuote(c(bashPath(script), bashPath(header), bashPath(binary), bashPath(source))),
     stdout = TRUE,
     stderr = TRUE
   ))
