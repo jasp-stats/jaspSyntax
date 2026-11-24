@@ -19,10 +19,14 @@ on:
         required: false
         default: ''
       update_configure:
-        description: 'Set this release tag as the default in configure and configure.win, commit that to the branch the workflow runs on, and move the git tag to that commit (needed for a JASP version that unit tests run against)'
+        description: 'Make this release the default of configure and configure.win on the branch the workflow runs on. auto = only when building jasp-desktop development (a JASP version built from a jasp-desktop tag must not become the default of master). The git tag of a full build always gets a configure that downloads its own release.'
         required: false
-        type: boolean
-        default: false
+        type: choice
+        options:
+          - auto
+          - 'yes'
+          - 'no'
+        default: auto
       os_filter:
         description: 'Limit the build to one runner, or build all of them. A full build also refreshes SHA256SUMS and the release notes.'
         required: false
@@ -469,7 +473,7 @@ jobs:
 
       # jasp-version.json says which packages make up the JASP version of this release, so that
       # jaspTools::setupJaspTools(jaspVersion = "<tag>") can install them to run unit tests against it:
-      # jaspSyntax at this tag (whose configure downloads these libraries, see update_configure), and
+      # jaspSyntax at this tag (whose configure downloads these libraries, see the last step), and
       # the jaspBase that jasp-desktop pins as a submodule.
       - name: Write jasp-version.json
         if: needs.setup.outputs.full_build == 'true'
@@ -562,20 +566,28 @@ jobs:
           prerelease: false
           make_latest: false
 
-      # ---- Make the new tag the default that configure / configure.win download from ----
+      # ---- Give the git tag (and with update_configure the branch) a configure that downloads this release ----
+      #
+      # Installing jaspSyntax@<tag> (what jasp-version.json points at) takes the R code and configure of the git tag.
+      # When the release was created, the tag was put on whatever the default branch was then, whose configure
+      # downloads another release; so the tag is moved to a commit whose configure downloads this one. That commit is
+      # pushed to the branch too when this release becomes its default (update_configure): a development build. A JASP
+      # version built from a jasp-desktop tag only gets it on its tag, so master keeps the development libraries.
 
       - name: Checkout jaspSyntax (to update configure)
-        if: github.event.inputs.update_configure == 'true'
+        if: needs.setup.outputs.full_build == 'true' || github.event.inputs.update_configure == 'yes'
         uses: actions/checkout@v6
         with:
           path: jaspSyntax
           fetch-depth: 0   # full history, so the rebase below finds a merge base
 
       - name: Set release tag in configure and configure.win
-        if: github.event.inputs.update_configure == 'true'
+        if: needs.setup.outputs.full_build == 'true' || github.event.inputs.update_configure == 'yes'
         working-directory: jaspSyntax
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # auto (also when the input is missing): only a build of jasp-desktop development becomes the default.
+          UPDATE_BRANCH: ${{ github.event.inputs.update_configure == 'yes' || (github.event.inputs.update_configure != 'no' && (github.event.inputs.jasp_desktop_ref || 'development') == 'development') }}
         run: |
           # configure fails without these, so never point it at a release that lacks them
           # (a single-OS build to a new tag only uploads one library).
@@ -585,7 +597,7 @@ jobs:
                        libSyntaxInterface-darwin-x86_64.dylib libSyntaxInterface-darwin-arm64.dylib \
                        SyntaxInterface-windows-x86_64.dll libR-InterfaceNoRInside-windows-x86_64.dll; do
             if ! grep -qxF "$asset" <<< "$ASSETS"; then
-              echo "::error::Release $RELEASE_TAG has no $asset; not making it the default in configure. Run a full build (os_filter: all) first."
+              echo "::error::Release $RELEASE_TAG has no $asset; not pointing configure at it. Run a full build (os_filter: all) first."
               exit 1
             fi
           done
@@ -606,15 +618,17 @@ jobs:
           else
             git diff -- configure configure.win
             git commit -m "Update GitHub release tag to $RELEASE_TAG" -- configure configure.win
-            # The build takes hours; the branch may have moved on in the meantime.
-            git pull --rebase origin "${{ github.ref_name }}"
-            git push origin "HEAD:${{ github.ref_name }}"
+            if [ "$UPDATE_BRANCH" = "true" ]; then
+              # The build takes long; the branch may have moved on in the meantime.
+              git pull --rebase origin "${{ github.ref_name }}"
+              git push origin "HEAD:${{ github.ref_name }}"
+              echo "configure on ${{ github.ref_name }} now defaults to $RELEASE_TAG."
+            else
+              echo "configure on ${{ github.ref_name }} keeps its default; only the tag $RELEASE_TAG gets this commit."
+            fi
           fi
 
-          # The git tag of the release is where installing jaspSyntax@<tag> takes the R code from
-          # (jasp-version.json points there). When the release was created, the tag was put on
-          # whatever the default branch was then, whose configure downloads other libraries; move
-          # it to this commit, so the R code and the libraries of the tag belong together.
           # The release stays attached to the tag name.
           git tag -f "$RELEASE_TAG" HEAD
           git push -f origin "refs/tags/$RELEASE_TAG"
+          echo "Tag $RELEASE_TAG is now at $(git rev-parse HEAD)."

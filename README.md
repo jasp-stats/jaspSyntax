@@ -32,16 +32,18 @@ The native library comes from a GitHub release of this repository, built by the
 downloads the release named in its `GITHUB_RELEASE_TAG` line; set the
 `JASPSYNTAX_RELEASE_TAG` environment variable to install with another one.
 
-For each JASP version that module unit tests should run against (e.g. `v0.99.1`):
+Every full build points `configure` at the new release on the git tag of that
+release, so `jasp-stats/jaspSyntax@<tag>` gives R code and libraries that belong
+together. A build of jasp-desktop `development` also makes it the default of
+`configure` on the branch the workflow runs on (`update_configure: auto`; `yes`
+or `no` override that). The release gets a `jasp-version.json`: the jaspSyntax
+ref, the jasp-desktop commit and the jaspBase commit of that JASP version.
 
-1. run the workflow with `jasp_desktop_ref` set to the jasp-desktop tag of that
-   version, `release_tag` set to the same name, and `update_configure` on. Run it
-   from `master`, or from a `release/<version>` branch when the R code of master
-   no longer fits that version.
-2. The workflow then commits the tag into `configure`, moves the git tag to that
-   commit, so `jasp-stats/jaspSyntax@<tag>` gives R code and libraries that belong
-   together, and attaches `jasp-version.json` to the release: the jaspSyntax ref,
-   the jasp-desktop commit and the jaspBase commit of that JASP version.
+For a JASP version that module unit tests should run against (e.g. `v0.99.1`),
+run the workflow with `jasp_desktop_ref` set to the jasp-desktop tag of that
+version and `release_tag` set to the same name. Run it from `master`, or from a
+`release/<version>` branch when the R code of master no longer fits that
+version. `master` keeps downloading the development libraries.
 
 `jaspTools::setupJaspTools(jaspVersion = "<tag>")` reads that file to install
 those packages.
