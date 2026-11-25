@@ -36,8 +36,8 @@ Every full build points `configure` at the new release on the git tag of that
 release, so `jasp-stats/jaspSyntax@<tag>` gives R code and libraries that belong
 together. A build of jasp-desktop `development` also makes it the default of
 `configure` on the branch the workflow runs on (`update_configure: auto`; `yes`
-or `no` override that). The release gets a `jasp-version.json`: the jaspSyntax
-ref, the jasp-desktop commit and the jaspBase commit of that JASP version.
+or `no` override that). The installed package records the jasp-desktop commit
+the library was built from (`nativeBridgeProvenance()`).
 
 For a JASP version that module unit tests should run against (e.g. `v0.99.1`),
 run the workflow with `jasp_desktop_ref` set to the jasp-desktop tag of that
@@ -45,5 +45,5 @@ version and `release_tag` set to the same name. Run it from `master`, or from a
 `release/<version>` branch when the R code of master no longer fits that
 version. `master` keeps downloading the development libraries.
 
-`jaspTools::setupJaspTools(jaspVersion = "<tag>")` reads that file to install
-those packages.
+`jaspTools::setupJaspTools(jaspVersion = "<tag>")` installs jaspSyntax at that
+tag and takes the html files and data sets from that jasp-desktop commit.
