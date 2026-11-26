@@ -526,7 +526,8 @@ jobs:
       # Installing jaspSyntax@<tag> (what jaspTools::setupJaspTools(jaspVersion = "<tag>") does) takes the R code and configure of the git tag.
       # When the release was created, the tag was put on whatever the default branch was then, whose configure
       # downloads another release; so the tag is moved to a commit whose configure downloads this one. That commit is
-      # pushed to the branch too when this release becomes its default (update_configure): a development build. A JASP
+      # pushed to the branch too when this release becomes its default (update_configure): a development build. That commit
+      # also raises the Version in DESCRIPTION, so R-universe publishes a jaspSyntax that installers see as newer. A JASP
       # version built from a jasp-desktop tag only gets it on its tag, so master keeps the development libraries.
 
       - name: Checkout jaspSyntax (to update configure)
@@ -576,6 +577,20 @@ jobs:
             if [ "$UPDATE_BRANCH" = "true" ]; then
               # The build takes long; the branch may have moved on in the meantime.
               git pull --rebase origin "${{ github.ref_name }}"
+
+              # Raise the last number of Version (after the rebase, so a Version change on the branch is built on):
+              # R-universe builds the default branch, and installers only replace a jaspSyntax with a higher version.
+              OLD_VERSION=$(sed -n -E 's/^Version:[[:space:]]*([0-9.-]+)[[:space:]]*$/\1/p' DESCRIPTION)
+              if [ -z "$OLD_VERSION" ]; then
+                echo "::error::Could not find the Version in DESCRIPTION."
+                exit 1
+              fi
+              NEW_VERSION=$(awk -v v="$OLD_VERSION" 'BEGIN { n = split(v, p, /[.-]/); seps = v; gsub(/[0-9]+/, "", seps)
+                                                          p[n]++; out = p[1]; for (i = 2; i <= n; i++) out = out substr(seps, i - 1, 1) p[i]; print out }')
+              sed -i -E "s/^Version:.*$/Version: $NEW_VERSION/" DESCRIPTION
+              git commit --amend -m "Update GitHub release tag to $RELEASE_TAG, version $NEW_VERSION" -- configure configure.win DESCRIPTION
+              echo "Version $OLD_VERSION -> $NEW_VERSION."
+
               git push origin "HEAD:${{ github.ref_name }}"
               echo "configure on ${{ github.ref_name }} now defaults to $RELEASE_TAG."
             else
