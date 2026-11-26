@@ -31,6 +31,8 @@ The native library comes from a GitHub release of this repository, built by the
 `Build SyntaxInterface Libraries` workflow from a jasp-desktop ref. `configure`
 downloads the release named in its `GITHUB_RELEASE_TAG` line; set the
 `JASPSYNTAX_RELEASE_TAG` environment variable to install with another one.
+The workflow needs `release_tag`: it creates that release, or overwrites the
+libraries of an existing one.
 
 Every full build points `configure` at the new release on the git tag of that
 release, so `jasp-stats/jaspSyntax@<tag>` gives R code and libraries that belong
