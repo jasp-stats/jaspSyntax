@@ -3,7 +3,7 @@
 # The configure script in jaspSyntax downloads these binaries during
 # `install.packages()`. R-universe also uses this when building the package.
 #
-# Trigger: manual dispatch, or on a schedule (every 2 weeks on Monday 06:00 UTC).
+# Trigger: manual dispatch only. release_tag is required, so a schedule would need to name a release itself.
 
 name: Build SyntaxInterface Libraries
 
@@ -15,9 +15,8 @@ on:
         required: false
         default: 'development'
       release_tag:
-        description: 'Release tag to upload assets to (empty = the most recently created release)'
-        required: false
-        default: ''
+        description: 'Release tag to upload assets to. Required: an existing release is overwritten, a new one is created. Development builds use v1.0.beta.<short jasp-desktop SHA>.'
+        required: true
       update_configure:
         description: 'Make this release the default of configure and configure.win on the branch the workflow runs on. auto = only when building jasp-desktop development (a JASP version built from a jasp-desktop tag must not become the default of master). The git tag of a full build always gets a configure that downloads its own release.'
         required: false
@@ -51,7 +50,7 @@ concurrency:
 env:
   JASP_DESKTOP_REPO: ${{ github.repository_owner }}/jasp-desktop
   JASP_DESKTOP_REF: ${{ github.event.inputs.jasp_desktop_ref || 'development' }}
-  # Resolved in the setup job: an empty release_tag input means the most recently created release.
+  # Checked in the setup job.
   RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
   QT_VERSION: '6.10.2'
   QT_SUBMODULES: 'qtbase,qtdeclarative,qtshadertools'
@@ -80,18 +79,13 @@ jobs:
       release_tag: ${{ steps.release-tag.outputs.release_tag }}
     steps:
       - id: release-tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="$RELEASE_TAG_INPUT"
+          # No default: falling back to the most recent release once overwrote the development
+          # release with a build of another jasp-desktop branch.
           if [ -z "$TAG" ]; then
-            # gh lists releases newest first (by creation date).
-            TAG=$(gh release list -R "${{ github.repository }}" --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
-            if [ -z "$TAG" ]; then
-              echo "::error::No release_tag given and ${{ github.repository }} has no releases to default to."
-              exit 1
-            fi
-            echo "No release_tag given, using the latest release: $TAG"
+            echo "::error::No release_tag given. Name the release to upload to; an existing one is overwritten."
+            exit 1
           fi
           # The tag ends up in a sed replacement and a commit message.
           if ! [[ "$TAG" =~ ^[A-Za-z0-9._-]+$ ]]; then
